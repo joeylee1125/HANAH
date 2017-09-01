@@ -6,10 +6,11 @@ import sys
 #import codecs
 #from datetime import date, datetime
 
-from shutil import copyfile
+#from shutil import copyfile
 from docx import Document
 
-import CourtList
+#import CourtList
+
 
 class VerdictAnalyser:
     def __init__(self, doc_name):
@@ -20,10 +21,8 @@ class VerdictAnalyser:
         self.prosecutor_pattern = re.compile('(?<=公诉机关).*?人民检察院')
         self.court_pattern = re.compile('\w+中级(?:人民)?法院')
 
-
     def _remove_space(self):
         self.content = self.content.replace(' ', '')
-
 
     def read_doc(self):
         try:
@@ -32,7 +31,6 @@ class VerdictAnalyser:
             self.content = ''.join(str(e) for e in l)
         except:
             print("Document %s is invalid" % self.doc_name)
-
 
     def analyse_doc(self):
         self.read_doc()
