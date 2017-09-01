@@ -1,17 +1,17 @@
 # -*- coding: UTF-8 -*-
-#import re
-#import sys
-#import os
-#import time
-#import csv
+# import re
+# import sys
+# import os
+# import time
+# import csv
 import argparse
-#import codecs
+# import codecs
 
-#from shutil import copyfile
-#from docx import Document
+# from shutil import copyfile
+# from docx import Document
 
 import VerdictAnalyser
-#import CourtList
+# import CourtList
 
 
 def main():    
