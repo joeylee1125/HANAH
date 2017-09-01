@@ -1,15 +1,15 @@
 # -*- coding: UTF-8 -*-
 import re
 import sys
-#import os
-#import time
-#import codecs
-#from datetime import date, datetime
+# import os
+# import time
+# import codecs
+# from datetime import date, datetime
 
-#from shutil import copyfile
+# from shutil import copyfile
 from docx import Document
-
-#import CourtList
+from docx.opc.exceptions import PackageNotFoundError
+# import CourtList
 
 
 class VerdictAnalyser:
@@ -29,7 +29,7 @@ class VerdictAnalyser:
             document = Document(self.doc_name) if self.doc_name else sys.exit(0)
             l = [paragraph.text for paragraph in document.paragraphs]
             self.content = ''.join(str(e) for e in l)
-        except:
+        except PackageNotFoundError:
             print("Document %s is invalid" % self.doc_name)
 
     def analyse_doc(self):
