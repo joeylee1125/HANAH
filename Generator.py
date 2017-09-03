@@ -24,7 +24,7 @@ def main():
     if args.file:
         verdict = VerdictAnalyser.VerdictAnalyser(args.file)
         verdict.analyse_doc()
-        print(verdict.content)
+        #print(verdict.content)
     elif args.folder:
         print("Todo: handle folder here.")
     else:
