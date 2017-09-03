@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 # import re
-# import sys
+import sys
 # import os
 # import time
 # import csv
@@ -15,15 +15,20 @@ import VerdictAnalyser
 
 
 def main():    
-    desc = ""
+    desc = " [ -F|--folder folder ] [ -f|--file file]."
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-F', '--folder', action='store')
     parser.add_argument('-f', '--file', action='store')
     args = parser.parse_args()
 
-    verdict = VerdictAnalyser.VerdictAnalyser(args.file)
-    verdict.analyse_doc()
-    print(verdict.content)
+    if args.file:
+        verdict = VerdictAnalyser.VerdictAnalyser(args.file)
+        verdict.analyse_doc()
+        print(verdict.content)
+    elif args.folder:
+        print("Todo: handle folder here.")
+    else:
+        print(sys.argv[0] + desc)
 
 if __name__ == "__main__":
     main()
