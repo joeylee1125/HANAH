@@ -26,13 +26,23 @@ class VerdictAnalyser:
         self.judgement_pattern = re.compile('(?:判决|判处|决定)(?:结果|如下).*')
         self.charge_pattern = re.compile('(?<=犯).+?罪')
         self.accuse_pattern = re.compile('指控.*?审理终结')
-        self.defendent_section_pattern = re.compile('被告人.*?起诉书')
+        
+        self.defendent_section_pattern = []
+        self.defendent_section_pattern.append(re.compile('被告人.*?起诉书'))
+        self.defendent_section_pattern.append(re.compile('被告人.*?人民检察院指控'))
+        self.defendent_section_pattern.append(re.compile('被告人.*?自诉'))
+        
+        
+        
         self.defendent_info_pattern = re.compile('被告人.*?(?=被告人|起诉书)')
         self.defendent_sex_pattern = re.compile('(?<=，)[男女](?=，)')
         self.defendent_nation_pattern = re.compile('(?<=，)' + CourtList.nation_list + '族(?=，)')
-        self.defendent_education_pattern = re.compile('(?<=，)' + CourtList.education_list + '(?=，)')
-        self.defendent_job_pattern = re.compile('(?<=，)' + CourtList.job_list + '(?=，)')
+        self.defendent_education_pattern = re.compile(CourtList.education_list)
+        self.defendent_job_pattern = re.compile(CourtList.job_list)
 
+        self.defendent_lawyer_pattern = re.compile('(?<!指定)辩护人.*?(?:事务所|法律援助中心|分所)律师')
+        self.defendent_law_firm_pattern = re.compile('(?<=辩护人).*?事务所律师')
+        
         self.defendent_pattern = []
         self.defendent_pattern.append(re.compile('(?<=被告人).+?[，,（(。]'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201|犯)'))
@@ -41,8 +51,13 @@ class VerdictAnalyser:
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}成都市'))
         self.defendent_pattern.append(re.compile('(?<=被告人姓名)' + CourtList.last_name + '\w{0,4}出生日期'))
         self.defendent_pattern.append(re.compile('(?<=被告)人?[：:?]' + CourtList.last_name + '\w{0,4}(?=[。，,（(]|201)'))
-        self.defendent_pattern.append(re.compile(CourtList.invalide_name))
+        self.defendent_pattern.append(re.compile(CourtList.invalid_name))
 
+        self.born_date_pattern = []
+        self.born_date_pattern.append(re.compile('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出生'))
+        self.born_date_pattern.append(re.compile('出生于(\d\d\d\d)年(\d{1,2})月(\d{1,2})日'))
+        
+        
     def _remove_space(self):
         self.content = self.content.replace(' ', '')
 
@@ -54,18 +69,18 @@ class VerdictAnalyser:
         except PackageNotFoundError:
             print("Document %s is invalid" % self.doc_name)
 
-    def _search_defendent(self):
+    def _search_defendent(self, context):
         # Start to search from pattern 1.
         # Pattern 0 is reserved to search all.
         for p in self.defendent_pattern[1:]:
-            d_list = re.findall(p, self.content)
+            d_list = re.findall(p, context)
             if d_list:
                 break
         else:
             print(self.doc_name)
-            print(re.findall(self.defendent_pattern[0], self.content))
+            print(re.findall(self.defendent_pattern[0], context))
             sys.exit(0)
-
+        print(d_list)
         d_list.sort(key=lambda x: len(x))
         raw_list_c = len(d_list)
         if raw_list_c > 1:
@@ -148,22 +163,28 @@ class VerdictAnalyser:
 
     def _get_section(self, section_name):
         if section_name == "defendent":
-            return self._search(self.defendent_section_pattern)
-
+            for p in self.defendent_section_pattern:
+                defendent_section = self._search(p, self.content)
+                if defendent_section: break
+            #print(defendent_section)
+            return defendent_section
+            
     def _get_defendent_name(self, context):
         for p in self.defendent_pattern[1:]:
             d = re.search(p, context)
-            print(d.group())
-            if d: return d.group()
-
+            if d: break
+        if d: return d.group()
+        
     def _get_defendent_age(self, df_sec):
-        born_date = re.search('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出生', df_sec)
-        if born_date:
-            born_year = born_date.group(1)
-            age = int(self.year) - int(born_year)
-            return age
-        return None
-
+        for p in self.born_date_pattern:
+            born_date = re.search(p, df_sec)
+            if born_date: break
+        else:
+            return None
+        born_year = born_date.group(1)
+        age = int(self.year) - int(born_year)
+        return age
+        
     def _get_defendent_sex(self, df_sec):
         sex = self._search(self.defendent_sex_pattern, df_sec)
         return sex
@@ -179,10 +200,17 @@ class VerdictAnalyser:
     def _get_defendent_job(self, df_sec):
         job = self._search(self.defendent_job_pattern, df_sec)
         return job
-
+    
+    def _get_defendent_lawyer(self, df_sec):
+        lawyer_list = re.findall(self.defendent_lawyer_pattern, df_sec)
+        return lawyer_list
+        
+    def _get_defendent_law_firm(self, df_sec):    
+        law_firm_list = re.findall(self.defendent_law_firm_pattern, df_sec)
+        return law_firm_list
+        
     def _get_defendent_info(self):
         df_sec = self._get_section('defendent')
-
         # df_sec should have content like 被告人.....被告人.....起诉书
         if df_sec:
             result = re.findall(self.defendent_info_pattern, df_sec)
@@ -197,6 +225,8 @@ class VerdictAnalyser:
             defendent_list[i]['nation'] = self._get_defendent_nation(result[i])
             defendent_list[i]['education'] = self._get_defendent_education(result[i])
             defendent_list[i]['job'] = self._get_defendent_job(result[i])
+            defendent_list[i]['lawyer'] = self._get_defendent_lawyer(result[i])
+            #defendent_list[i]['law_firm'] = self._get_defendent_law_firm(result[i])
             print(defendent_list[i])
         return defendent_list
 
@@ -212,6 +242,7 @@ class VerdictAnalyser:
         case_info['prosecutor'] = self._get_prosecutor()
         case_info['year'] = self._get_year(case_info['id'])
         self._get_defendent_info()
+        # print(case_info)
         # case_info['nation'] = self._get_nation()
         # case_info['defendent'] = []
         # case_info['defendent'] = self._get_defendent()

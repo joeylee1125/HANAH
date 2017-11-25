@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 # import re
 import sys
-# import os
+import os
 # import time
 # import csv
 import argparse
@@ -26,7 +26,13 @@ def main():
         verdict.analyse_doc()
         #print(verdict.content)
     elif args.folder:
-        print("Todo: handle folder here.")
+        file_list = os.listdir(args.folder)
+        for file in file_list:
+            print('')
+            print(file)
+            verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file)
+            verdict.analyse_doc()
+        #print(os.listdir(args.folder))
     else:
         print(sys.argv[0] + desc)
 
