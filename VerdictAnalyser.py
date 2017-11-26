@@ -17,6 +17,11 @@ class VerdictAnalyser:
         self.accuse_section = ''
         self.content = ''
         self.year = ''
+        self.df_sec = ''
+        self.cv_sec = ''
+        self.last_sec = ''
+        self.first_sec = ''
+        
         self.doc_name = doc_name
         self.case_id_pattern = re.compile('[(（]\d\d\d\d[）)].*?号')
         self.verdict_pattern = re.compile(".*?判决书")
@@ -37,19 +42,33 @@ class VerdictAnalyser:
         
         self.convict_section_pattern = []
         self.convict_section_pattern.append(re.compile('(?<=判决如下).*如不服本判决'))
-        self.convict_info_pattern = re.compile('被告人.*?(?=被告人|如不服本判决)')
+        self.convict_section_pattern.append(re.compile('(?<=判决如下).*提出上诉'))
+        self.convict_section_pattern.append(re.compile('(?<=判处如下).*提出上诉'))
+        self.convict_info_pattern = re.compile('被告人.*?(?=被告人|如不服本判决|提出上诉)')
         
-        self.defendent_sex_pattern = re.compile('(?<=，)[男女](?=，)')
-        self.defendent_nation_pattern = re.compile('(?<=，)' + CourtList.nation_list + '族(?=，)')
+        self.first_section_pattern = []
+        self.first_section_pattern.append(re.compile('.*?(?=被告人)'))
+        
+        
+        #self.last_section_pattern = []
+        #self.last_section_pattern.append(re.compile('审(.+)?判(.+)?长.*书(.+)?记(.+)?员(.+)?\w{2,3}'))
+        
+        
+        
+        self.defendent_sex_pattern = re.compile('(?<=，|,)[男女](?=，|。)')
+        self.defendent_nation_pattern = re.compile('(?<=，|,)' + CourtList.nation_list + '族(?=，|。)')
         self.defendent_education_pattern = re.compile(CourtList.education_list)
         self.defendent_job_pattern = re.compile(CourtList.job_list)
 
-        self.defendent_lawyer_pattern = re.compile('(?<!指定)辩护人.*?(?:事务所|法律援助中心|分所)律师')
+        self.defendent_lawyer_pattern = re.compile('(?<!指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师')
+        self.defendent_s_lawyer_pattern = re.compile('(?<=指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师')
+        
         self.defendent_law_firm_pattern = re.compile('(?<=辩护人).*?事务所律师')
         
         self.defendent_pattern = []
         self.defendent_pattern.append(re.compile('(?<=被告人).+?[，,（(。]'))
-        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201|犯)'))
+        #self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201|犯)'))
+        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201)'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.ss_name))
         self.defendent_pattern.append(re.compile('(?<=被告人..情况姓名)' + CourtList.last_name + '\w{0,4}[，（|出生日期|性别]'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}成都市'))
@@ -58,12 +77,13 @@ class VerdictAnalyser:
         self.defendent_pattern.append(re.compile(CourtList.invalid_name))
 
         self.born_date_pattern = []
-        self.born_date_pattern.append(re.compile('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出生'))
-        self.born_date_pattern.append(re.compile('出生于(\d\d\d\d)年(\d{1,2})月(\d{1,2})日'))
-        
+        self.born_date_pattern.append(re.compile('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出?生'))
+        self.born_date_pattern.append(re.compile('生于(\d\d\d\d)年(\d{1,2})月(\d{1,2})日'))
+
         
     def _remove_space(self):
         self.content = self.content.replace(' ', '')
+        #print(self.content)
 
     def read_doc(self):
         try:
@@ -126,17 +146,24 @@ class VerdictAnalyser:
         return result.group() if result is not None else None
 
     def _get_case_id(self):
-        return self._search(self.case_id_pattern)
+        return self._search(self.case_id_pattern, self.first_sec)
 
     def _get_verdict_name(self):
-        return self._search(self.verdict_pattern)
+        return self._search(self.verdict_pattern, self.first_sec)
 
-    def _get_court_name(self, verdict_name):
-        return self._search(self.court_pattern, verdict_name)
+    def _get_court_name(self):
+        return self._search(self.court_pattern, self.first_sec)
 
     def _get_prosecutor(self):
-        return self._search(self.prosecutor_pattern)
-
+        return self._search(self.prosecutor_pattern, self.first_sec)
+    
+    def _get_procedure(self):
+        p = self._search('简易程序')
+        if not p:
+            return '普通程序'
+        else:
+            return p
+    
     def _get_judgement(self):
         return self._search(self.judgement_pattern)
 
@@ -162,22 +189,36 @@ class VerdictAnalyser:
         return self._search('(?<=被告人' + defendent + '犯).+?罪', self.judgement_section)
 
     def _get_year(self, id):
+        print(self.last_sec)
         self.year = self._search(self.year_pattern, id)
         return self.year
 
-    def _get_section(self, section_name):
-        if section_name == "defendent":
-            for p in self.defendent_section_pattern:
-                defendent_section = self._search(p, self.content)
-                if defendent_section: break
-            #print(defendent_section)
-            return defendent_section
-        if section_name == "convict":
-            for p in self.convict_section_pattern:
-                convict_section = self._search(p, self.content)
-                if convict_section: break
-            #print(convict_section)
-            return convict_section    
+    def _get_section(self):
+        for p in self.defendent_section_pattern:
+            defendent_section = self._search(p, self.content)
+            if defendent_section: break
+        #print(defendent_section)
+        self.df_sec = defendent_section
+
+        for p in self.convict_section_pattern:
+            convict_section = self._search(p, self.content)
+            if convict_section: break
+        #print(convict_section)
+        else:
+            print("warning -----------------> no convict section found by %s" % self.convict_section_pattern)
+        self.cv_sec = convict_section
+        
+        for p in self.first_section_pattern:
+            first_section = self._search(p, self.content)
+            if first_section: break
+        print(first_section)
+        self.first_sec = first_section
+        
+        #for p in self.last_section_pattern:
+        #    last_section = self._search(p, self.content)
+        #    if last_section: break
+        #print(last_section)
+        #self.last_sec = last_section
             
     def _get_defendent_name(self, context):
         for p in self.defendent_pattern[1:]:
@@ -214,56 +255,71 @@ class VerdictAnalyser:
     def _get_defendent_lawyer(self, df_sec):
         lawyer_list = re.findall(self.defendent_lawyer_pattern, df_sec)
         return lawyer_list
+    
+    def _get_defendent_s_lawyer(self, df_sec):
+        s_lawyer_list = re.findall(self.defendent_s_lawyer_pattern, df_sec)
+        return s_lawyer_list
         
     def _get_defendent_law_firm(self, df_sec):    
         law_firm_list = re.findall(self.defendent_law_firm_pattern, df_sec)
         return law_firm_list
     
     def _get_defendent_charge(self, d_name, cv_result):
+        charge = None
         for cv in cv_result:
-        #    print(cv, d_name)
+#            print("Search %s in %s" % (d_name, cv))
             if re.search(d_name, cv):
                 charge = re.search('(?<=犯).*?(?=罪)', cv)
-                break
+                if charge: break
         if charge:
-            print("%s ---------------> %s" % (d_name, charge.group()))
+            #print("%s ---------------> %s" % (d_name, charge.group()))
+            return charge.group()
         else:
             print("%s ---------------> NOT FOUND" % d_name)
             print(cv_result)
-        return charge.group()
+            return charge
         
         
     def _get_defendent_info(self):
-        df_sec = self._get_section('defendent')
-        # df_sec should have content like 被告人.....被告人.....起诉书
-        if df_sec:
-            df_result = re.findall(self.defendent_info_pattern, df_sec)
-            # print(df_result)
+        if self.df_sec:
+            df_result = re.findall(self.defendent_info_pattern, self.df_sec)
+            #print(df_sec)
+            #print(df_result)
             # 被告人曾宇，男，1980年12月15日出生（身份证号码：），汉族，大学文化，无业，户籍所在地：成都市成华区。
         if not df_result:
             print("warning -----------------> no defendent result found by %s" % self.defendent_info_pattern)
 
-        cv_sec = self._get_section('convict')
-        if cv_sec:
-            cv_result = re.findall(self.convict_info_pattern, cv_sec)
-        if not cv_result:
-            print("warning -----------------> no convict result found by %s" % self.convict_info_pattern)    
-            
+        if self.cv_sec:
+            cv_result = re.findall(self.convict_info_pattern, self.cv_sec)
+            if not cv_result:
+                print("warning -----------------> no convict result found by %s" % self.convict_info_pattern)    
+
         defendent_list = [ dict() for x in range(len(df_result)) ]
         for i, d in enumerate(df_result):
             #print('%s, %s' % (i, d))
             #print(defendent_list)    
             defendent_list[i]['name'] = self._get_defendent_name(df_result[i])
-            
             defendent_list[i]['age'] = self._get_defendent_age(df_result[i])
             defendent_list[i]['sex'] = self._get_defendent_sex(df_result[i])
             defendent_list[i]['nation'] = self._get_defendent_nation(df_result[i])
             defendent_list[i]['education'] = self._get_defendent_education(df_result[i])
             defendent_list[i]['job'] = self._get_defendent_job(df_result[i])
             defendent_list[i]['lawyer'] = self._get_defendent_lawyer(df_result[i])
+            defendent_list[i]['s_lawyer'] = self._get_defendent_s_lawyer(df_result[i])
+            
             #defendent_list[i]['law_firm'] = self._get_defendent_law_firm(df_result[i])
-        print(defendent_list)
-        if defendent_list[-1]['name'] == '某某': defendent_list.pop()
+
+        j = len(defendent_list)
+        i = 0
+        while i < j: 
+            #print(i,j)
+            if defendent_list[i]['name'] == '某某' or defendent_list[i]['name'] == None:
+                defendent_list.pop(i)
+                j -= 1
+                i -= 1
+            i += 1
+        #print(defendent_list)
+        
         
         for i in range(len(defendent_list)):
             defendent_list[i]['charge'] = self._get_defendent_charge(defendent_list[i]['name'], cv_result)
@@ -273,15 +329,19 @@ class VerdictAnalyser:
         case_info = {}
         self.read_doc()
         self._remove_space()
+        self._get_section()
+        
 
         case_info['name'] = self.doc_name
         case_info['verdict'] = self._get_verdict_name()
         case_info['id'] = self._get_case_id()
-        case_info['court'] = self._get_court_name(case_info['verdict'])
+        case_info['court'] = self._get_court_name()
         case_info['prosecutor'] = self._get_prosecutor()
+        case_info['procedure'] = self._get_procedure()
         case_info['year'] = self._get_year(case_info['id'])
         case_info['defendent'] = self._get_defendent_info()
-        
+
+
         #print(case_info['defendent'])
         defendent_num = len(case_info['defendent'])
         output = [ dict() for x in range(defendent_num) ]
@@ -291,6 +351,7 @@ class VerdictAnalyser:
             output[d]['id'] = case_info['id']
             output[d]['court'] = case_info['court']
             output[d]['prosecutor'] = case_info['prosecutor']
+            output[d]['procedure'] = case_info['procedure']
             output[d]['year'] = case_info['year']
             output[d]['d_name'] = case_info['defendent'][d]['name']
             output[d]['d_age'] = case_info['defendent'][d]['age']
@@ -299,8 +360,8 @@ class VerdictAnalyser:
             output[d]['d_education'] = case_info['defendent'][d]['education']
             output[d]['d_job'] = case_info['defendent'][d]['job']
             output[d]['d_lawyer'] = case_info['defendent'][d]['lawyer']
+            output[d]['d_s_lawyer'] = case_info['defendent'][d]['s_lawyer']
             output[d]['d_charge'] = case_info['defendent'][d]['charge']
-            
         return output
 
         
