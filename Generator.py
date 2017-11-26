@@ -3,7 +3,7 @@
 import sys
 import os
 # import time
-# import csv
+import csv
 import argparse
 # import codecs
 
@@ -13,7 +13,16 @@ import argparse
 import VerdictAnalyser
 # import CourtList
 
-
+def dump2csv(results):
+    file = 'report.csv'
+    print('dump 2 file %s' % file)
+    fieldnames = ['file_name', 'verdict', 'id', 'court', 'prosecutor', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education', 'd_job', 'd_lawyer', 'd_charge']
+    with open(file, 'w', newline='', encoding='utf-8_sig') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in results:
+            writer.writerow(r)
+        
 def main():    
     desc = " [ -F|--folder folder ] [ -f|--file file]."
     parser = argparse.ArgumentParser(description=desc)
@@ -26,13 +35,15 @@ def main():
         verdict.analyse_doc()
         #print(verdict.content)
     elif args.folder:
+        analyse_result = []
         file_list = os.listdir(args.folder)
         for file in file_list:
             print('')
             print(file)
             verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file)
-            verdict.analyse_doc()
-        #print(os.listdir(args.folder))
+            analyse_result.extend(verdict.analyse_doc())
+        #print(analyse_result)
+        dump2csv(analyse_result)
     else:
         print(sys.argv[0] + desc)
 

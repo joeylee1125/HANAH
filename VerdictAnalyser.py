@@ -31,10 +31,14 @@ class VerdictAnalyser:
         self.defendent_section_pattern.append(re.compile('被告人.*?起诉书'))
         self.defendent_section_pattern.append(re.compile('被告人.*?人民检察院指控'))
         self.defendent_section_pattern.append(re.compile('被告人.*?自诉'))
+        self.defendent_info_pattern = re.compile('被告人.*?(?=被告人|起诉书|人民检察院指控|自诉)')
         
         
         
-        self.defendent_info_pattern = re.compile('被告人.*?(?=被告人|起诉书)')
+        self.convict_section_pattern = []
+        self.convict_section_pattern.append(re.compile('(?<=判决如下).*如不服本判决'))
+        self.convict_info_pattern = re.compile('被告人.*?(?=被告人|如不服本判决)')
+        
         self.defendent_sex_pattern = re.compile('(?<=，)[男女](?=，)')
         self.defendent_nation_pattern = re.compile('(?<=，)' + CourtList.nation_list + '族(?=，)')
         self.defendent_education_pattern = re.compile(CourtList.education_list)
@@ -168,6 +172,12 @@ class VerdictAnalyser:
                 if defendent_section: break
             #print(defendent_section)
             return defendent_section
+        if section_name == "convict":
+            for p in self.convict_section_pattern:
+                convict_section = self._search(p, self.content)
+                if convict_section: break
+            #print(convict_section)
+            return convict_section    
             
     def _get_defendent_name(self, context):
         for p in self.defendent_pattern[1:]:
@@ -208,26 +218,55 @@ class VerdictAnalyser:
     def _get_defendent_law_firm(self, df_sec):    
         law_firm_list = re.findall(self.defendent_law_firm_pattern, df_sec)
         return law_firm_list
+    
+    def _get_defendent_charge(self, d_name, cv_result):
+        for cv in cv_result:
+        #    print(cv, d_name)
+            if re.search(d_name, cv):
+                charge = re.search('(?<=犯).*?(?=罪)', cv)
+                break
+        if charge:
+            print("%s ---------------> %s" % (d_name, charge.group()))
+        else:
+            print("%s ---------------> NOT FOUND" % d_name)
+            print(cv_result)
+        return charge.group()
+        
         
     def _get_defendent_info(self):
         df_sec = self._get_section('defendent')
         # df_sec should have content like 被告人.....被告人.....起诉书
         if df_sec:
-            result = re.findall(self.defendent_info_pattern, df_sec)
-            # print(result)
+            df_result = re.findall(self.defendent_info_pattern, df_sec)
+            # print(df_result)
             # 被告人曾宇，男，1980年12月15日出生（身份证号码：），汉族，大学文化，无业，户籍所在地：成都市成华区。
-        defendent_list = [{}] * len(result)
-        for i, d in enumerate(result):
+        if not df_result:
+            print("warning -----------------> no defendent result found by %s" % self.defendent_info_pattern)
+
+        cv_sec = self._get_section('convict')
+        if cv_sec:
+            cv_result = re.findall(self.convict_info_pattern, cv_sec)
+        if not cv_result:
+            print("warning -----------------> no convict result found by %s" % self.convict_info_pattern)    
+            
+        defendent_list = [ dict() for x in range(len(df_result)) ]
+        for i, d in enumerate(df_result):
             #print('%s, %s' % (i, d))
-            defendent_list[i]['name'] = self._get_defendent_name(result[i])
-            defendent_list[i]['age'] = self._get_defendent_age(result[i])
-            defendent_list[i]['sex'] = self._get_defendent_sex(result[i])
-            defendent_list[i]['nation'] = self._get_defendent_nation(result[i])
-            defendent_list[i]['education'] = self._get_defendent_education(result[i])
-            defendent_list[i]['job'] = self._get_defendent_job(result[i])
-            defendent_list[i]['lawyer'] = self._get_defendent_lawyer(result[i])
-            #defendent_list[i]['law_firm'] = self._get_defendent_law_firm(result[i])
-            print(defendent_list[i])
+            #print(defendent_list)    
+            defendent_list[i]['name'] = self._get_defendent_name(df_result[i])
+            
+            defendent_list[i]['age'] = self._get_defendent_age(df_result[i])
+            defendent_list[i]['sex'] = self._get_defendent_sex(df_result[i])
+            defendent_list[i]['nation'] = self._get_defendent_nation(df_result[i])
+            defendent_list[i]['education'] = self._get_defendent_education(df_result[i])
+            defendent_list[i]['job'] = self._get_defendent_job(df_result[i])
+            defendent_list[i]['lawyer'] = self._get_defendent_lawyer(df_result[i])
+            #defendent_list[i]['law_firm'] = self._get_defendent_law_firm(df_result[i])
+        print(defendent_list)
+        if defendent_list[-1]['name'] == '某某': defendent_list.pop()
+        
+        for i in range(len(defendent_list)):
+            defendent_list[i]['charge'] = self._get_defendent_charge(defendent_list[i]['name'], cv_result)
         return defendent_list
 
     def analyse_doc(self):
@@ -241,17 +280,27 @@ class VerdictAnalyser:
         case_info['court'] = self._get_court_name(case_info['verdict'])
         case_info['prosecutor'] = self._get_prosecutor()
         case_info['year'] = self._get_year(case_info['id'])
-        self._get_defendent_info()
-        # print(case_info)
-        # case_info['nation'] = self._get_nation()
-        # case_info['defendent'] = []
-        # case_info['defendent'] = self._get_defendent()
+        case_info['defendent'] = self._get_defendent_info()
+        
+        #print(case_info['defendent'])
+        defendent_num = len(case_info['defendent'])
+        output = [ dict() for x in range(defendent_num) ]
+        for d in range(defendent_num):
+            output[d]['file_name'] = case_info['name']
+            output[d]['verdict'] = case_info['verdict']
+            output[d]['id'] = case_info['id']
+            output[d]['court'] = case_info['court']
+            output[d]['prosecutor'] = case_info['prosecutor']
+            output[d]['year'] = case_info['year']
+            output[d]['d_name'] = case_info['defendent'][d]['name']
+            output[d]['d_age'] = case_info['defendent'][d]['age']
+            output[d]['d_sex'] = case_info['defendent'][d]['sex']
+            output[d]['d_nation'] = case_info['defendent'][d]['nation']
+            output[d]['d_education'] = case_info['defendent'][d]['education']
+            output[d]['d_job'] = case_info['defendent'][d]['job']
+            output[d]['d_lawyer'] = case_info['defendent'][d]['lawyer']
+            output[d]['d_charge'] = case_info['defendent'][d]['charge']
+            
+        return output
 
-        info_list = ['name',
-                     'verdict',
-                     'id',
-                     'court',
-                     'prosecutor',
-                     ]
-        # for i in info_list:
-        #    print("Case " + i + " is %s" % case_info[i])
+        
