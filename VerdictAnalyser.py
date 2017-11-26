@@ -33,10 +33,10 @@ class VerdictAnalyser:
         self.accuse_pattern = re.compile('指控.*?审理终结')
         
         self.defendent_section_pattern = []
-        self.defendent_section_pattern.append(re.compile('被告人.*?起诉书'))
+        self.defendent_section_pattern.append(re.compile('被告人.*?(?:起诉书|指控)'))
         self.defendent_section_pattern.append(re.compile('被告人.*?人民检察院指控'))
         self.defendent_section_pattern.append(re.compile('被告人.*?自诉'))
-        self.defendent_info_pattern = re.compile('被告人.*?(?=被告人|起诉书|人民检察院指控|自诉)')
+        self.defendent_info_pattern = re.compile('被告人.*?(?=被告人|起诉书|人民检察院指控|自诉|指控)')
         
         
         
@@ -60,8 +60,14 @@ class VerdictAnalyser:
         self.defendent_education_pattern = re.compile(CourtList.education_list)
         self.defendent_job_pattern = re.compile(CourtList.job_list)
 
-        self.defendent_lawyer_pattern = re.compile('(?<!指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师')
-        self.defendent_s_lawyer_pattern = re.compile('(?<=指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师')
+        self.defendent_lawyer_pattern = []
+        self.defendent_lawyer_pattern.append(re.compile('(?<!指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师'))
+        self.defendent_lawyer_pattern.append(re.compile('(?<!指定|指派)辩护人\w{3}'))
+        
+        self.defendent_s_lawyer_pattern = []
+        self.defendent_s_lawyer_pattern.append(re.compile('(?<=指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师'))
+        self.defendent_s_lawyer_pattern.append(re.compile('(?<=指定|指派)辩护人\w{3}'))
+        
         
         self.defendent_law_firm_pattern = re.compile('(?<=辩护人).*?事务所律师')
         
@@ -71,7 +77,7 @@ class VerdictAnalyser:
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201)'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.ss_name))
         self.defendent_pattern.append(re.compile('(?<=被告人..情况姓名)' + CourtList.last_name + '\w{0,4}[，（|出生日期|性别]'))
-        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}成都市'))
+        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}(?=成都市)'))
         self.defendent_pattern.append(re.compile('(?<=被告人姓名)' + CourtList.last_name + '\w{0,4}出生日期'))
         self.defendent_pattern.append(re.compile('(?<=被告)人?[：:?]' + CourtList.last_name + '\w{0,4}(?=[。，,（(]|201)'))
         self.defendent_pattern.append(re.compile(CourtList.invalid_name))
@@ -197,7 +203,7 @@ class VerdictAnalyser:
         for p in self.defendent_section_pattern:
             defendent_section = self._search(p, self.content)
             if defendent_section: break
-        #print(defendent_section)
+        print(defendent_section)
         self.df_sec = defendent_section
 
         for p in self.convict_section_pattern:
@@ -211,7 +217,7 @@ class VerdictAnalyser:
         for p in self.first_section_pattern:
             first_section = self._search(p, self.content)
             if first_section: break
-        print(first_section)
+        #print(first_section)
         self.first_sec = first_section
         
         #for p in self.last_section_pattern:
@@ -253,11 +259,19 @@ class VerdictAnalyser:
         return job
     
     def _get_defendent_lawyer(self, df_sec):
-        lawyer_list = re.findall(self.defendent_lawyer_pattern, df_sec)
+        for p in self.defendent_lawyer_pattern:
+            lawyer_list = re.findall(p, df_sec)
+            if lawyer_list: break
+        else:
+            return None
         return lawyer_list
     
     def _get_defendent_s_lawyer(self, df_sec):
-        s_lawyer_list = re.findall(self.defendent_s_lawyer_pattern, df_sec)
+        for p in self.defendent_s_lawyer_pattern:
+            s_lawyer_list = re.findall(p, df_sec)
+            if s_lawyer_list: break
+        else:
+            return None
         return s_lawyer_list
         
     def _get_defendent_law_firm(self, df_sec):    
@@ -283,7 +297,7 @@ class VerdictAnalyser:
     def _get_defendent_info(self):
         if self.df_sec:
             df_result = re.findall(self.defendent_info_pattern, self.df_sec)
-            #print(df_sec)
+            #print(self.df_sec)
             #print(df_result)
             # 被告人曾宇，男，1980年12月15日出生（身份证号码：），汉族，大学文化，无业，户籍所在地：成都市成华区。
         if not df_result:
@@ -291,6 +305,8 @@ class VerdictAnalyser:
 
         if self.cv_sec:
             cv_result = re.findall(self.convict_info_pattern, self.cv_sec)
+            #print(self.cv_sec)
+            #print(cv_result)
             if not cv_result:
                 print("warning -----------------> no convict result found by %s" % self.convict_info_pattern)    
 
