@@ -164,7 +164,10 @@ class VerdictAnalyser:
         return self._search(self.prosecutor_pattern, self.first_sec)
     
     def _get_procedure(self):
-        p = self._search('简易程序')
+        p = self._search('普通程序')
+        if not p:
+            p = self._search('简易程序')
+        
         if not p:
             return '普通程序'
         else:
@@ -193,7 +196,24 @@ class VerdictAnalyser:
         # print(judgement_section)
         # return self._search(self.charge_pattern, judgement_section)
         return self._search('(?<=被告人' + defendent + '犯).+?罪', self.judgement_section)
-
+        
+    def _get_charge_class(self, charge):
+        for g in CourtList.zm_group_list:
+            if charge in CourtList.zm_group[g]:
+                return CourtList.zm_group_name[g]
+        else:
+            return None
+        
+#               zm = re.search('(?<=犯).*?(?=罪)', pj)
+#       if not zm:
+#           for g in CourtList.zm_group_list:
+#               for zp in CourtList.zm_group[g]:
+#                   if not zm:
+#                       #print(zp)
+#                       zm = re.search(zp, pj)
+#       if zm:
+#           return zm.group()
+        
     def _get_year(self, id):
         print(self.last_sec)
         self.year = self._search(self.year_pattern, id)
@@ -339,6 +359,7 @@ class VerdictAnalyser:
         
         for i in range(len(defendent_list)):
             defendent_list[i]['charge'] = self._get_defendent_charge(defendent_list[i]['name'], cv_result)
+            defendent_list[i]['charge_c'] = self._get_charge_class(defendent_list[i]['charge'])
         return defendent_list
 
     def analyse_doc(self):
@@ -378,6 +399,7 @@ class VerdictAnalyser:
             output[d]['d_lawyer'] = case_info['defendent'][d]['lawyer']
             output[d]['d_s_lawyer'] = case_info['defendent'][d]['s_lawyer']
             output[d]['d_charge'] = case_info['defendent'][d]['charge']
+            output[d]['d_charge_c'] = case_info['defendent'][d]['charge_c']
         return output
 
         

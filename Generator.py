@@ -17,7 +17,7 @@ import VerdictAnalyser
 def dump2csv(results, folder_name):
     file = folder_name + '_report.csv'
     print('dump 2 file %s' % file)
-    fieldnames = ['file_name', 'verdict', 'id', 'court', 'prosecutor', 'procedure', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education', 'd_job', 'd_lawyer', 'd_s_lawyer', 'd_charge']
+    fieldnames = ['file_name', 'verdict', 'id', 'court', 'prosecutor', 'procedure', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education', 'd_job', 'd_lawyer', 'd_s_lawyer', 'd_charge', 'd_charge_c']
     with open(file, 'w', newline='', encoding='utf-8_sig') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
