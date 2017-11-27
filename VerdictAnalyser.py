@@ -159,7 +159,26 @@ class VerdictAnalyser:
 
     def _get_court_name(self):
         return self._search(self.court_pattern, self.first_sec)
-
+        
+    def _get_region(self, court_name):
+        if not court_name: 
+            return None
+        
+        for k in CourtList.court_list:
+            for court in CourtList.court_list[k]:
+                if court in court_name:
+                    return CourtList.court_trans[k]
+        else:
+            return None
+            
+    def _get_court_level(self, court_name):
+        if not court_name: 
+            return None
+        if '中级' in court_name:
+                return '中级'
+        else:
+            return '基层'    
+        
     def _get_prosecutor(self):
         return self._search(self.prosecutor_pattern, self.first_sec)
     
@@ -215,7 +234,7 @@ class VerdictAnalyser:
 #           return zm.group()
         
     def _get_year(self, id):
-        print(self.last_sec)
+        #print(self.last_sec)
         self.year = self._search(self.year_pattern, id)
         return self.year
 
@@ -223,7 +242,7 @@ class VerdictAnalyser:
         for p in self.defendent_section_pattern:
             defendent_section = self._search(p, self.content)
             if defendent_section: break
-        print(defendent_section)
+        #print(defendent_section)
         self.df_sec = defendent_section
 
         for p in self.convict_section_pattern:
@@ -276,6 +295,14 @@ class VerdictAnalyser:
 
     def _get_defendent_job(self, df_sec):
         job = self._search(self.defendent_job_pattern, df_sec)
+        if job == '务农' or job == '粮农' or job == '农村居民':
+            return '农民'
+        elif job == '修理工' or job == '驾驶员' or job == '工作人员':
+            return '职工'
+        elif job == '无职业':
+            return '无业'
+        elif job == '务工人员':
+            return '个体'
         return job
     
     def _get_defendent_lawyer(self, df_sec):
@@ -342,8 +369,15 @@ class VerdictAnalyser:
             defendent_list[i]['job'] = self._get_defendent_job(df_result[i])
             defendent_list[i]['lawyer'] = self._get_defendent_lawyer(df_result[i])
             defendent_list[i]['s_lawyer'] = self._get_defendent_s_lawyer(df_result[i])
-            
-            #defendent_list[i]['law_firm'] = self._get_defendent_law_firm(df_result[i])
+
+            if defendent_list[i]['lawyer']:
+                defendent_list[i]['lawyer_n'] = len(defendent_list[i]['lawyer'])
+            else:
+                defendent_list[i]['lawyer_n'] = None
+            if defendent_list[i]['s_lawyer']:
+                defendent_list[i]['s_lawyer_n'] = len(defendent_list[i]['s_lawyer'])
+            else:
+                defendent_list[i]['s_lawyer_n'] = None
 
         j = len(defendent_list)
         i = 0
@@ -373,11 +407,13 @@ class VerdictAnalyser:
         case_info['verdict'] = self._get_verdict_name()
         case_info['id'] = self._get_case_id()
         case_info['court'] = self._get_court_name()
+        case_info['region'] = self._get_region(case_info['court'])
+        case_info['court_level'] = self._get_court_level(case_info['court'])
         case_info['prosecutor'] = self._get_prosecutor()
         case_info['procedure'] = self._get_procedure()
         case_info['year'] = self._get_year(case_info['id'])
         case_info['defendent'] = self._get_defendent_info()
-
+                    
 
         #print(case_info['defendent'])
         defendent_num = len(case_info['defendent'])
@@ -387,6 +423,8 @@ class VerdictAnalyser:
             output[d]['verdict'] = case_info['verdict']
             output[d]['id'] = case_info['id']
             output[d]['court'] = case_info['court']
+            output[d]['region'] = case_info['region']
+            output[d]['court_level'] = case_info['court_level'] 
             output[d]['prosecutor'] = case_info['prosecutor']
             output[d]['procedure'] = case_info['procedure']
             output[d]['year'] = case_info['year']
@@ -397,7 +435,9 @@ class VerdictAnalyser:
             output[d]['d_education'] = case_info['defendent'][d]['education']
             output[d]['d_job'] = case_info['defendent'][d]['job']
             output[d]['d_lawyer'] = case_info['defendent'][d]['lawyer']
+            output[d]['d_lawyer_n'] = case_info['defendent'][d]['lawyer_n']
             output[d]['d_s_lawyer'] = case_info['defendent'][d]['s_lawyer']
+            output[d]['d_s_lawyer_n'] = case_info['defendent'][d]['s_lawyer_n']
             output[d]['d_charge'] = case_info['defendent'][d]['charge']
             output[d]['d_charge_c'] = case_info['defendent'][d]['charge_c']
         return output

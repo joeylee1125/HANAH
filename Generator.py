@@ -17,7 +17,27 @@ import VerdictAnalyser
 def dump2csv(results, folder_name):
     file = folder_name + '_report.csv'
     print('dump 2 file %s' % file)
-    fieldnames = ['file_name', 'verdict', 'id', 'court', 'prosecutor', 'procedure', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education', 'd_job', 'd_lawyer', 'd_s_lawyer', 'd_charge', 'd_charge_c']
+    fieldnames = ['file_name', \
+                  'verdict', \
+                  'id', \
+                  'court', \
+                  'region',\
+                  'court_level',\
+                  'prosecutor', \
+                  'procedure', \
+                  'year', \
+                  'd_name', \
+                  'd_age', \
+                  'd_sex', \
+                  'd_nation', \
+                  'd_education', \
+                  'd_job', \
+                  'd_lawyer', \
+                  'd_lawyer_n',\
+                  'd_s_lawyer', \
+                  'd_s_lawyer_n',\
+                  'd_charge', \
+                  'd_charge_c']
     with open(file, 'w', newline='', encoding='utf-8_sig') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -47,11 +67,12 @@ def main():
             print(i)
             
             verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file)
+            analyse_result.extend(verdict.analyse_doc())
             #verdict.analyse_doc()
-            try:
-                analyse_result.extend(verdict.analyse_doc())
-            except:
-                print("Failed to analyse %s" % (args.folder + '\\' + file))
+            #try:
+            #    analyse_result.extend(verdict.analyse_doc())
+            #except:
+            #    print("Failed to analyse %s" % (args.folder + '\\' + file))
                 #move(args.folder + '\\' + file, args.folder + '\\..\\EXCEPT\\' + file)
             
         #print(analyse_result)
