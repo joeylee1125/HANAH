@@ -50,10 +50,11 @@ def main():
     parser.add_argument('-F', '--folder', action='store')
     parser.add_argument('-f', '--file', action='store')
     parser.add_argument('-m', '--move', action='store')
+    parser.add_argument('-y', '--year', action='store')
     args = parser.parse_args()
 
     if args.file:
-        verdict = VerdictAnalyser.VerdictAnalyser(args.file)
+        verdict = VerdictAnalyser.VerdictAnalyser(args.file, args.year)
         print(verdict.analyse_doc())
         #print(verdict.content)
     elif args.folder:
@@ -61,12 +62,12 @@ def main():
         file_list = os.listdir(args.folder)
         i = 0
         for file in file_list:
-            print('')
-            print(file)
+            #print('')
+            #print(file)
             i += 1
-            print(i)
+            #print(i)
             
-            verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file)
+            verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file, args.year)
             analyse_result.extend(verdict.analyse_doc())
             #verdict.analyse_doc()
             #try:
@@ -76,6 +77,7 @@ def main():
                 #move(args.folder + '\\' + file, args.folder + '\\..\\EXCEPT\\' + file)
             
         #print(analyse_result)
+        print(i)
         dump2csv(analyse_result, args.folder)
     elif args.move:
         folder_list = os.listdir(args.move)

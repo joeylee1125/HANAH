@@ -13,21 +13,28 @@ import CourtList
 
 
 class VerdictAnalyser:
-    def __init__(self, doc_name):
+    def __init__(self, doc_name, year):
         self.accuse_section = ''
         self.content = ''
-        self.year = ''
+        self.year = year
         self.df_sec = ''
         self.cv_sec = ''
         self.last_sec = ''
         self.first_sec = ''
         
         self.doc_name = doc_name
-        self.case_id_pattern = re.compile('[(（]\d\d\d\d[）)].*?号')
+        
+        self.case_id_pattern = []
+        self.case_id_pattern.append(re.compile('[(（]\d\d\d\d[）)].*?号'))
+        self.case_id_pattern.append(re.compile('[(（]\d\d\d\d[）)][\w\d]+[初]([字第]+)?[\d]+'))
+        self.case_id_pattern.append(re.compile('\d{4}[\w\d]+[初]([字第]+)?[\d]+号'))
+        
+        
+        
         self.verdict_pattern = re.compile(".*?判决书")
         self.prosecutor_pattern = re.compile('(?<=公诉机关).*?人民检察院')
         self.court_pattern = re.compile('\w+人民法院')
-        self.year_pattern = re.compile('[12]\d{3}')
+        self.year_pattern = re.compile('[12][09]\d{2}')
         self.judgement_pattern = re.compile('(?:判决|判处|决定)(?:结果|如下).*')
         self.charge_pattern = re.compile('(?<=犯).+?罪')
         self.accuse_pattern = re.compile('指控.*?审理终结')
@@ -152,8 +159,14 @@ class VerdictAnalyser:
         return result.group() if result is not None else None
 
     def _get_case_id(self):
-        return self._search(self.case_id_pattern, self.first_sec)
-
+        #print(self.first_sec)
+        for p in self.case_id_pattern:
+            case_id = self._search(p, self.first_sec)
+            if case_id: 
+                return case_id
+        else:
+            return None
+        
     def _get_verdict_name(self):
         return self._search(self.verdict_pattern, self.first_sec)
 
@@ -222,20 +235,12 @@ class VerdictAnalyser:
                 return CourtList.zm_group_name[g]
         else:
             return None
-        
-#               zm = re.search('(?<=犯).*?(?=罪)', pj)
-#       if not zm:
-#           for g in CourtList.zm_group_list:
-#               for zp in CourtList.zm_group[g]:
-#                   if not zm:
-#                       #print(zp)
-#                       zm = re.search(zp, pj)
-#       if zm:
-#           return zm.group()
+
         
     def _get_year(self, id):
         #print(self.last_sec)
-        self.year = self._search(self.year_pattern, id)
+        #self.year = self._search(self.year_pattern, id)
+        #TODO:   This is hard code to receive command line parameter
         return self.year
 
     def _get_section(self):
@@ -266,12 +271,20 @@ class VerdictAnalyser:
         #self.last_sec = last_section
             
     def _get_defendent_name(self, context):
-        for p in self.defendent_pattern[1:]:
+        for i, p in enumerate(self.defendent_pattern[1:]):
             d = re.search(p, context)
-            if d: break
+            if d: 
+                # used to solve issue 被告人：王某轩 and 人：王某轩.
+                if i == 5:
+                    d = re.search(CourtList.last_name + '\w{0,4}', d.group())
+                    break
+                else:
+                    break
         if d: return d.group()
         
     def _get_defendent_age(self, df_sec):
+        if not self.year:
+            return None
         for p in self.born_date_pattern:
             born_date = re.search(p, df_sec)
             if born_date: break
@@ -332,12 +345,20 @@ class VerdictAnalyser:
             if re.search(d_name, cv):
                 charge = re.search('(?<=犯).*?(?=罪)', cv)
                 if charge: break
+            else:
+                for g in CourtList.zm_group_list:
+                    for c in CourtList.zm_group[g]:
+                        charge = re.search(c, cv)
+                    if charge: break                
         if charge:
             #print("%s ---------------> %s" % (d_name, charge.group()))
             return charge.group()
         else:
-            print("%s ---------------> NOT FOUND" % d_name)
+            print(self.doc_name)
+            print("%s ------------------------------------------------------------------------------------------------------------> NOT FOUND" % d_name)
             print(cv_result)
+            print('')
+            print('')
             return charge
         
         
