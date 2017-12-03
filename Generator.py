@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# import re
+import re
 import sys
 import os
 # import time
@@ -59,26 +59,36 @@ def main():
 
     if args.file:
         verdict = VerdictAnalyser.VerdictAnalyser(args.file, args.year)
-        print(verdict.analyse_doc())
+        #print(verdict.analyse_doc())
+        for i in verdict.analyse_doc():
+            print(i)
+            print('')
         #print(verdict.content)
     elif args.folder:
         analyse_result = []
         file_list = os.listdir(args.folder)
         i = 0
         for file in file_list:
-            #print('')
-            #print(file)
+            print('')
+            print(file)
             i += 1
             print(i)
             
             verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file, args.year)
             analyse_result.extend(verdict.analyse_doc())
+            
+            #verdict.analyse_doc()
+            #if re.search('附带民事', file):
+            #    print(file)
+            #    move(args.folder + '\\' + file, args.folder + '\\..\\附带民事\\' + file)
+            
+            
             #verdict.analyse_doc()
             #try:
             #    analyse_result.extend(verdict.analyse_doc())
             #except:
             #    print("Failed to analyse %s" % (args.folder + '\\' + file))
-                #move(args.folder + '\\' + file, args.folder + '\\..\\EXCEPT\\' + file)
+            #    move(args.folder + '\\' + file, args.folder + '\\..\\EXCEPT1\\' + file)
             
         #print(analyse_result)
         print(i)
