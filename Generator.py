@@ -37,7 +37,11 @@ def dump2csv(results, folder_name):
                   'd_s_lawyer', \
                   'd_s_lawyer_n',\
                   'd_charge', \
-                  'd_charge_c']
+                  'd_charge_c',\
+                  'd_prison',\
+                  'd_prison_l',\
+                  'd_probation',\
+                  'd_probation_l']
     with open(file, 'w', newline='', encoding='utf-8_sig') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -65,7 +69,7 @@ def main():
             #print('')
             #print(file)
             i += 1
-            #print(i)
+            print(i)
             
             verdict = VerdictAnalyser.VerdictAnalyser(args.folder + '\\' + file, args.year)
             analyse_result.extend(verdict.analyse_doc())
