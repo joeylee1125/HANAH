@@ -57,6 +57,7 @@ class VerdictAnalyser:
         self.convict_section_pattern.append(re.compile('(?<=判决结果).*如不服本判决'))
         self.convict_section_pattern.append(re.compile('(?<=判处结果).*如不服本判决'))
         self.convict_section_pattern.append(re.compile('(?<=判决如下).*审'))#审　判　长
+        self.convict_section_pattern.append(re.compile('(?<=之规定).*如不服本判决'))
         self.convict_info_pattern = re.compile('被告人.*?(?=被告人|如不服本判决|提出上诉|审)')
         
         self.first_section_pattern = []
