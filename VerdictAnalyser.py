@@ -88,6 +88,8 @@ class VerdictAnalyser:
         self.defendent_prison_pattern.append(re.compile('(?<=判).*?(?=[。，,；（])'))
         self.defendent_prison_pattern.append(re.compile('无罪'))
         
+        self.defendent_fine_pattern = []
+        self.defendent_fine_pattern.append(re.compile('(?<=罚金).*?(?=元)'))
         
         self.defendent_probation_pattern = []
         self.defendent_probation_pattern.append(re.compile('缓刑.*?(?=[。，,；])'))
@@ -240,30 +242,17 @@ class VerdictAnalyser:
     def _get_accuse_section(self):
         return self._search(self.accuse_pattern)
 
-    def _get_lawyer(self, defendent):
-        if self.accuse_section:
-            dl = re.search('.*被告人(.*)到庭', self.accuse_section).group(1)
-            # print(dl)
-            if dl:
-                l = re.search('.*辩护人.*', dl)
-                if l: print(l.group())
-
-        else:
-            # print('=[==================================================>%s' % self.doc_name)
-            pass
-        return None
-
     def _get_charge(self, defendent):
         # print(judgement_section)
         # return self._search(self.charge_pattern, judgement_section)
         return self._search('(?<=被告人' + defendent + '犯).+?罪', self.judgement_section)
         
     def _get_charge_class(self, charge):
-        for g in CourtList.zm_group_list:
+        for g in CourtList.zm_group_list[:-1]:
             if charge in CourtList.zm_group[g]:
                 return CourtList.zm_group_name[g]
         else:
-            return None
+            return CourtList.zm_group_name['qt_list']
 
         
     def _get_year(self, id):
@@ -276,9 +265,13 @@ class VerdictAnalyser:
         for p in self.defendent_section_pattern:
             defendent_section = self._search(p, self.content)
             if defendent_section: break
+        else:
+            print("warning -----------------> no defendent section found by %s" % self.defendent_section_pattern)
+            print(self.doc_name)
+            print(self.content)
         #print(defendent_section)
         self.df_sec = defendent_section
-
+    
         for p in self.convict_section_pattern:
             convict_section = self._search(p, self.content)
             if convict_section: break
@@ -422,7 +415,7 @@ class VerdictAnalyser:
     def _get_defendent_prison(self, d_name, cv_result):
         prison = None
         for cv in cv_result:
-            #print("Search %s in %s" % (d_name, cv))
+            # print("Search %s in %s" % (d_name, cv))
             if re.search(d_name, cv):
                 for p in self.defendent_prison_pattern:
                     prison = re.search(p, cv)
@@ -430,6 +423,8 @@ class VerdictAnalyser:
             if prison: break            
         if prison:
             #print("%s ---------------> %s" % (d_name, prison.group()))
+            if "罚金" in prison.group():
+                return None
             return prison.group()
         else:
             print(self.doc_name)
@@ -437,8 +432,53 @@ class VerdictAnalyser:
             print(cv_result)
             print('')
             print('')
-            return prison            
-
+            return prison
+    
+    def _get_number(self, text):
+        number = None
+        # Step 1, Remove comma.        
+        t = text.replace(',', '')
+        t = t.replace('，', '')
+        #print(t)
+        
+        # Step 2, Retrun number
+        n = re.search('[0-9]+', t)
+        if not n:
+            cn = re.search('([一二三四五六七八九十][千万])+', t)
+            if cn:
+                c_value = re.search('[千万]', cn.group())
+                c_number = re.search('[一二三四五六七八九十]', cn.group())
+                if c_value.group() == '千':
+                    number = self._trans_chinese_number(c_number.group()) * 1000
+                elif c_value.group() == '万':
+                    number = self._trans_chinese_number(c_number.group()) * 10000
+                else:
+                    print(cn)
+        #print(n.group())
+        else:
+            number = n.group()
+        return number
+    
+    def _get_defendent_fine(self, d_name, cv_result):
+        fine = None
+        for cv in cv_result:
+            #print("Search %s in %s" % (d_name, cv))
+            if re.search(d_name, cv):
+                for f in self.defendent_fine_pattern:
+                    fine = re.search(f, cv)
+                    if fine: break
+            if fine: break            
+        if fine:
+            #print("%s ---------------> %s" % (d_name, fine.group()))
+            return self._get_number(fine.group())
+        else:
+            print(self.doc_name)
+            print("%s -----------------------------------------------------------------------------------------------> prison NOT FOUND" % d_name)
+            print(cv_result)
+            print('')
+            print('')
+            return fine                    
+            
     def _get_defendent_probation(self, d_name, cv_result):
         probation = None
         for cv in cv_result:
@@ -607,6 +647,8 @@ class VerdictAnalyser:
             defendent_list[i]['job'] = self._get_defendent_job(df_result[i])
             defendent_list[i]['lawyer'] = self._get_defendent_lawyer(df_result[i])
             defendent_list[i]['s_lawyer'] = self._get_defendent_s_lawyer(df_result[i])
+            
+            
 
             if defendent_list[i]['lawyer']:
                 defendent_list[i]['lawyer_n'] = len(defendent_list[i]['lawyer'])
@@ -617,6 +659,11 @@ class VerdictAnalyser:
             else:
                 defendent_list[i]['s_lawyer_n'] = None
 
+            if defendent_list[i]['lawyer_n'] == None and defendent_list[i]['s_lawyer_n'] == None:
+                defendent_list[i]['has_lawyer'] = 'no'
+            else:
+                defendent_list[i]['has_lawyer'] = 'no'
+                
         #j = len(defendent_list)
         #i = 0
         #while i < j: 
@@ -636,6 +683,7 @@ class VerdictAnalyser:
             defendent_list[i]['prison_l'] = self._get_len(defendent_list[i]['prison'])
             defendent_list[i]['probation'] = self._get_defendent_probation(defendent_list[i]['name'], cv_result)
             defendent_list[i]['probation_l'] = self._get_len(defendent_list[i]['probation'])
+            defendent_list[i]['fine'] = self._get_defendent_fine(defendent_list[i]['name'], cv_result)
             
         return defendent_list
 
@@ -681,12 +729,12 @@ class VerdictAnalyser:
             output[d]['d_lawyer_n'] = case_info['defendent'][d]['lawyer_n']
             output[d]['d_s_lawyer'] = case_info['defendent'][d]['s_lawyer']
             output[d]['d_s_lawyer_n'] = case_info['defendent'][d]['s_lawyer_n']
+            output[d]['d_has_lawyer'] = case_info['defendent'][d]['has_lawyer']
             output[d]['d_charge'] = case_info['defendent'][d]['charge']
             output[d]['d_charge_c'] = case_info['defendent'][d]['charge_c']
             output[d]['d_prison'] = case_info['defendent'][d]['prison']
             output[d]['d_prison_l'] = case_info['defendent'][d]['prison_l']
             output[d]['d_probation'] = case_info['defendent'][d]['probation']
             output[d]['d_probation_l'] = case_info['defendent'][d]['probation_l']
+            output[d]['d_fine'] = case_info['defendent'][d]['fine']
         return output
-
-        

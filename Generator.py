@@ -36,12 +36,14 @@ def dump2csv(results, folder_name):
                   'd_lawyer_n',\
                   'd_s_lawyer', \
                   'd_s_lawyer_n',\
+                  'd_has_lawyer',\
                   'd_charge', \
                   'd_charge_c',\
                   'd_prison',\
                   'd_prison_l',\
                   'd_probation',\
-                  'd_probation_l']
+                  'd_probation_l',\
+                  'd_fine']
     with open(file, 'w', newline='', encoding='utf-8_sig') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -56,12 +58,17 @@ def main():
     parser.add_argument('-m', '--move', action='store')
     parser.add_argument('-y', '--year', action='store')
     args = parser.parse_args()
-
+    
+    # This is for debug only
+    file_path = "C:\\Users\\lij37\\Code\\RAW_Han2015\\NEW\\"
+    
     if args.file:
-        verdict = VerdictAnalyser.VerdictAnalyser(args.file, args.year)
+        file_name = file_path + args.file
+        verdict = VerdictAnalyser.VerdictAnalyser(file_name, args.year)
         #print(verdict.analyse_doc())
         for i in verdict.analyse_doc():
-            print(i)
+            for k, v in i.items():
+                print('%s ----> %s' % (k, v))
             print('')
         #print(verdict.content)
     elif args.folder:
