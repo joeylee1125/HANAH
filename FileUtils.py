@@ -18,8 +18,9 @@ from io import BytesIO
 #import tesserocr
 
 
-
-
+def write_text(path_2_file, t):
+    with open(path_2_file, "w") as text_file:
+        text_file.write(t)
 
 def dump2csv(data_dict, file_name):
     with open(file_name, 'w', newline='', encoding='utf-8_sig') as csvfile:
@@ -74,7 +75,6 @@ def move_file(src_folder, dst_folder):
 def validate_path(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
-        
         
 def count_files(folder):
     return len(os.listdir(folder))

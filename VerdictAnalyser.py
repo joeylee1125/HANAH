@@ -1,7 +1,8 @@
 # -*- coding: UTF-8 -*-
 import re
 import sys
-# import os
+import logging
+import os
 # import time
 # import codecs
 # from datetime import date, datetime
@@ -25,7 +26,6 @@ class VerdictAnalyser:
         
         
         self.doc_name = doc_name
-        
         self.case_id_pattern = []
         self.case_id_pattern.append(re.compile('[(（]\d\d\d\d[）)].*?号'))
         self.case_id_pattern.append(re.compile('[(（]\d\d\d\d[）)][\w\d]+[初]([字第]+)?[\d]+'))
@@ -34,7 +34,10 @@ class VerdictAnalyser:
         
         
         self.verdict_pattern = re.compile(".*?判决书")
-        self.prosecutor_pattern = re.compile('(?<=公诉机关).*?人民检察院')
+        
+        self.prosecutor_pattern = list()
+        self.prosecutor_pattern.append(re.compile('(?<=公诉机关).*?人民检察院'))        
+        
         self.court_pattern = re.compile('\w+人民法院')
         self.year_pattern = re.compile('[12][09]\d{2}')
         self.judgement_pattern = re.compile('(?:判决|判处|决定)(?:结果|如下).*')
@@ -58,6 +61,7 @@ class VerdictAnalyser:
         self.convict_section_pattern.append(re.compile('(?<=判处结果).*如不服本判决'))
         self.convict_section_pattern.append(re.compile('(?<=判决如下).*审'))#审　判　长
         self.convict_section_pattern.append(re.compile('(?<=之规定).*如不服本判决'))
+        
         self.convict_info_pattern = re.compile('被告人.*?(?=被告人|如不服本判决|提出上诉|审)')
         
         self.first_section_pattern = []
@@ -97,7 +101,7 @@ class VerdictAnalyser:
         
         
         self.defendent_lawyer_pattern = []
-        self.defendent_lawyer_pattern.append(re.compile('(?<!指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师'))
+        self.defendent_lawyer_pattern.append(re.compile('(?<!指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)(?:律师|实习律师)'))
         self.defendent_lawyer_pattern.append(re.compile('(?<!指定|指派)辩护人\w{3}'))
         
         self.defendent_s_lawyer_pattern = []
@@ -123,20 +127,54 @@ class VerdictAnalyser:
         self.born_date_pattern = []
         self.born_date_pattern.append(re.compile('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出?生'))
         self.born_date_pattern.append(re.compile('生于(\d\d\d\d)年(\d{1,2})月(\d{1,2})日'))
+        
+        self._init_log()
+        
+    
+    def _init_log(self):
+        # Create logger
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+        # create console handler and set level to debug
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        #ch.setLevel(logging.INFO)
 
         
+        # create formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        # add formatter to ch
+        ch.setFormatter(formatter)
+
+        # add ch to logger
+        self.logger.addHandler(ch)
+    
+    
     def _remove_space(self):
         self.content = self.content.replace(' ', '')
         #print(self.content)
 
-    def read_doc(self):
-        try:
-            document = Document(self.doc_name) if self.doc_name else sys.exit(0)
-            l = [paragraph.text for paragraph in document.paragraphs]
-            self.content = ''.join(str(e) for e in l)
-        except PackageNotFoundError:
-            print("Document %s is invalid" % self.doc_name)
-
+    def _read_doc(self):
+        if os.path.getsize(self.doc_name) < 1000:
+            self.logger.info("Invalid file {}".format(self.doc_name))
+            return None
+        if 'txt' in self.doc_name:
+            try:
+                with open(self.doc_name, 'r') as txt_file:
+                    self.content = txt_file.read()
+            except Exception as e:
+                self.logger.info("Failed load file {} with error {}".format(self.doc_name, e))
+        else:
+            try:
+                document = Document(self.doc_name) if self.doc_name else sys.exit(0)
+                l = [paragraph.text for paragraph in document.paragraphs]
+                self.content = ''.join(str(e) for e in l)
+            except PackageNotFoundError:
+                print("Document %s is invalid" % self.doc_name)
+        return True
+                
+                
     def _search_defendent(self, context):
         # Start to search from pattern 1.
         # Pattern 0 is reserved to search all.
@@ -219,12 +257,14 @@ class VerdictAnalyser:
         if not court_name: 
             return None
         if '中级' in court_name:
-                return '中级'
+            return '中级'
+        elif '中级' in court_name:
+            return '高级'
         else:
             return '基层'    
         
     def _get_prosecutor(self):
-        return self._search(self.prosecutor_pattern, self.first_sec)
+        return _search_by_mul_pattern(self.prosecutor_pattern, self.first_sec)
     
     def _get_procedure(self):
         p = self._search('普通程序')
@@ -261,51 +301,24 @@ class VerdictAnalyser:
         #TODO:   This is hard code to receive command line parameter
         return self.year
 
-    def _get_section(self):
-        for p in self.defendent_section_pattern:
-            defendent_section = self._search(p, self.content)
-            if defendent_section: break
-        else:
-            print("warning -----------------> no defendent section found by %s" % self.defendent_section_pattern)
-            print(self.doc_name)
-            print(self.content)
-        #print(defendent_section)
-        self.df_sec = defendent_section
     
-        for p in self.convict_section_pattern:
-            convict_section = self._search(p, self.content)
-            if convict_section: break
+    def _search_by_mul_pattern(self, pattern_list, content):
+        # search pattern in content and return match section.
+        for p in pattern_list:
+            section = self._search(p, content)
+            if section: break
         else:
-            print("warning -----------------> no convict section found by %s" % self.convict_section_pattern)
-            print(self.doc_name)
-            print(self.content)
-        #print(convict_section)
-        
-        self.cv_sec = convict_section
-        
-        for p in self.first_section_pattern:
-            first_section = self._search(p, self.content)
-            if first_section: break
-        #print(first_section)
-        self.first_sec = first_section
-        
-        for p in self.second_section_pattern:
-            second_section = self._search(p, self.content)
-            if second_section: break
-        else:
-            print(self.doc_name)
-            print('<--------------------2 Section NOT FOUND------------------------>')
-            print('')
-            print('')
-        #print(second_section)
-        self.second_sec = second_section
+            self.logger.info("No section found by {} in {}".format(pattern_list, self.doc_name)) 
+        self.logger.debug("Found {}".format(section))
+        return section
         
         
-        #for p in self.last_section_pattern:
-        #    last_section = self._search(p, self.content)
-        #    if last_section: break
-        #print(last_section)
-        #self.last_sec = last_section
+    def _get_all_section(self):
+        self.df_sec = self._search_by_mul_pattern(self.defendent_section_pattern, self.content)
+        self.cv_sec = self._search_by_mul_pattern(self.convict_section_pattern, self.content)
+        self.first_sec = self._search_by_mul_pattern(self.first_section_pattern, self.content)
+        # self.second_sec = self._search_by_mul_pattern(self.second_section_pattern, self.content)
+
             
     def _get_defendent_name(self, context):
         for i, p in enumerate(self.defendent_pattern[1:]):
@@ -352,13 +365,15 @@ class VerdictAnalyser:
         education = self._search(self.defendent_education_pattern, df_sec)
         if education == '不识字': 
             return '文盲'
+        if education == '专科':
+            return '中专'
         return education
 
     def _get_defendent_job(self, df_sec):
         job = self._search(self.defendent_job_pattern, df_sec)
         if job == '务农' or job == '粮农' or job == '农村居民':
             return '农民'
-        elif job == '修理工' or job == '驾驶员' or job == '工作人员':
+        elif job == '修理工' or job == '驾驶员' or job == '工作人员' or job == '教师':
             return '职工'
         elif job == '无职业':
             return '无业'
@@ -390,6 +405,8 @@ class VerdictAnalyser:
     
     def _get_defendent_charge(self, d_name, cv_result):
         charge = None
+        
+        cv_result = self._clean_defendent_result(cv_result)
         for cv in cv_result:
             #print("Search %s in %s" % (d_name, cv))
             if re.search(d_name, cv):
@@ -415,7 +432,7 @@ class VerdictAnalyser:
     def _get_defendent_prison(self, d_name, cv_result):
         prison = None
         for cv in cv_result:
-            # print("Search %s in %s" % (d_name, cv))
+            self.logger.debug("Search %s in %s" % (d_name, cv))
             if re.search(d_name, cv):
                 for p in self.defendent_prison_pattern:
                     prison = re.search(p, cv)
@@ -549,8 +566,8 @@ class VerdictAnalyser:
         return l
     
     def _clean_defendent_result(self, df_result):
-        # 如果i+1段中出现以前出现过的被告人，那么合并i+1到i并删除i+1段
-        # 如果i段中没有出现被告人，那么合并i+1到i并删除i+1段
+            # 如果i+1段中出现以前出现过的被告人，那么合并i+1到i并删除i+1段
+            # 如果i段中没有出现被告人，那么合并i+1到i并删除i+1段
         
         #print('Before clean ----------------------------> %s'%df_result)
         j = len(df_result)
@@ -617,17 +634,17 @@ class VerdictAnalyser:
     
     def _get_defendent_info(self):
         if self.df_sec:
-            #print(self.df_sec)
+            self.logger.debug("Find defendent info pattern {} in defendent section {}".format(self.defendent_info_pattern, self.df_sec))
             df_result = re.findall(self.defendent_info_pattern, self.df_sec)
-            #print(df_result)
+            self.logger.debug("Defendent info is {}".format(df_result))
             # 被告人曾宇，男，1980年12月15日出生（身份证号码：），汉族，大学文化，无业，户籍所在地：成都市成华区。
         if not df_result:
-            print("warning -----------------> no defendent result found by %s" % self.defendent_info_pattern)
+            self.logger.info("No defendent result found by %s" % self.defendent_info_pattern)
 
         if self.cv_sec:
+            self.logger.debug("Find convict pattern {} in convict section {}".format(self.convict_info_pattern, self.cv_sec))
             cv_result = re.findall(self.convict_info_pattern, self.cv_sec)
-            #print(self.cv_sec)
-            #print(cv_result)
+            self.logger.debug("Found {}".format(cv_result))
             if not cv_result:
                 print("warning -----------------> no convict result found by %s" % self.convict_info_pattern)  
                 #print(self.cv_sec)
@@ -662,7 +679,7 @@ class VerdictAnalyser:
             if defendent_list[i]['lawyer_n'] == None and defendent_list[i]['s_lawyer_n'] == None:
                 defendent_list[i]['has_lawyer'] = 'no'
             else:
-                defendent_list[i]['has_lawyer'] = 'no'
+                defendent_list[i]['has_lawyer'] = 'yes'
                 
         #j = len(defendent_list)
         #i = 0
@@ -688,10 +705,12 @@ class VerdictAnalyser:
         return defendent_list
 
     def analyse_doc(self):
-        case_info = {}
-        self.read_doc()
+        case_info = dict()
+        if self._read_doc() is None:
+            print('analyse return none')
+            return None
         self._remove_space()
-        self._get_section()
+        self._get_all_section()
         
 
         case_info['name'] = self.doc_name
@@ -704,8 +723,8 @@ class VerdictAnalyser:
         case_info['procedure'] = self._get_procedure()
         case_info['year'] = self._get_year(case_info['id'])
         case_info['defendent'] = self._get_defendent_info()
-                    
-
+       
+        
         #print(case_info['defendent'])
         defendent_num = len(case_info['defendent'])
         output = [ dict() for x in range(defendent_num) ]
@@ -737,4 +756,46 @@ class VerdictAnalyser:
             output[d]['d_probation'] = case_info['defendent'][d]['probation']
             output[d]['d_probation_l'] = case_info['defendent'][d]['probation_l']
             output[d]['d_fine'] = case_info['defendent'][d]['fine']
+        self.logger.debug("Output of case {} is {}".format(self.doc_name, output))
         return output
+        
+class VerdictAnalyser2(VerdictAnalyser):
+    def __init__(self, doc_name, year):
+        super().__init__(doc_name, year)
+        self.defendent_section_pattern = list()
+        
+        self.prosecutor_pattern = list()
+        self.prosecutor_pattern.append(re.compile('(?<=公诉机关).*?人民检察院'))
+        self.prosecutor_pattern.append(re.compile('(?<=抗诉机关).*?人民检察院'))
+        
+        # 上诉人（原审被告人）
+        self.defendent_section_pattern.append(re.compile('上诉人（原审被告人）?.*?(?:判决)'))
+        self.defendent_section_pattern.append(re.compile('原审被告人?.*?(?:判决)'))
+        
+        # 原审被告人王兴德，男，生于1941年2月7日，汉族，四川省广元市人，小学文化，农民，
+        self.defendent_pattern = list()
+        self.defendent_pattern.append(re.compile('(?<=被告人).+?[，,（(。]'))
+        self.defendent_pattern.append(re.compile('(?<=上诉人（原审被告人）)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201)'))
+        self.defendent_pattern.append(re.compile('(?<=原审被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201)'))
+
+        
+        self.defendent_info_pattern = re.compile('(?:上诉人)?（?原审被告人）?.*?(?=判决|被告人)')
+        
+        self.convict_section_pattern = list()
+        self.convict_section_pattern.append(re.compile('(?<=判决如下).*审(.+)?判(.+)?长'))
+        #self.convict_section_pattern.append(re.compile('(?<=判决如下).*如不服本判决'))
+        #self.convict_section_pattern.append(re.compile('(?<=判决如下).*提出上诉'))
+        #self.convict_section_pattern.append(re.compile('(?<=判处如下).*提出上诉'))
+        #self.convict_section_pattern.append(re.compile('(?<=判决结果).*如不服本判决'))
+        #self.convict_section_pattern.append(re.compile('(?<=判处结果).*如不服本判决'))
+        #self.convict_section_pattern.append(re.compile('(?<=判决如下).*审(.+)?判(.+)?长'))#审　判　长
+        #self.convict_section_pattern.append(re.compile('(?<=之规定).*如不服本判决'))
+        
+        
+        #self.convict_info_pattern = re.compile('[一二三四五六七八九十].*?(?=一|二|三|四|五|六|七|八|九|十|审)')
+
+        
+    def test(self):
+        if self._read_doc() is None:
+            return None
+        self._get_all_section()
