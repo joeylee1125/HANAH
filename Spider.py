@@ -75,18 +75,20 @@ class WenShu:
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
         # create console handler and set level to debug
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+        self.ch = logging.StreamHandler()
+        self.ch.setLevel(logging.DEBUG)
 
         # create formatter
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         # add formatter to ch
-        ch.setFormatter(formatter)
+        self.ch.setFormatter(formatter)
 
         # add ch to logger
-        self.logger.addHandler(ch)
+        self.logger.addHandler(self.ch)
 
+    def __del__(self):
+        self.logger.removeHandler(self.ch)
 
     def set_search_criteria(self, search_criteria):
         self.logger.info("Set search criteria to {}".format(search_criteria))
@@ -204,7 +206,7 @@ class WenShu:
                     continue
                 # 返回的数据进行序列化
                 data_unicode = json.loads(r.text)
-                self.logger.debug('Response is {}'.format(data_unicode))
+                #self.logger.debug('Response is {}'.format(data_unicode))
                 # data_json = response.json()
 
                 if data_unicode == u'remind key':
@@ -271,16 +273,24 @@ class WenShu:
         pattern_procedure = re.compile('"审判程序":"(.*?)"', re.S)
         pattern_court = re.compile('"法院名称":"(.*?)"', re.S)
         self.logger.info("Get case list on page {}".format(index))
-        raw = self.load_page(index)
-        self.case_brief['name'] = re.findall(pattern_name, raw)
-        self.case_brief['doc_id'] = re.findall(pattern_id, raw)
-        self.case_brief['date'] = re.findall(pattern_date, raw)
-        self.case_brief['case_id'] = re.findall(pattern_case_id, raw)
-        self.case_brief['brief'] = re.findall(pattern_brief, raw)
-        self.case_brief['procedure'] = re.findall(pattern_procedure, raw)
-        self.case_brief['court'] = re.findall(pattern_court, raw)
-        self.case_brief['download'] = 'N' * len(self.case_brief['name'])
-        self.logger.debug("Case list on page {} is {}".format(index, self.case_brief))
+        while True:
+            raw = self.load_page(index)
+            self.case_brief = dict()
+            self.case_brief['name'] = re.findall(pattern_name, raw)
+            self.case_brief['doc_id'] = re.findall(pattern_id, raw)
+            self.case_brief['date'] = re.findall(pattern_date, raw)
+            self.case_brief['case_id'] = re.findall(pattern_case_id, raw)
+            self.case_brief['brief'] = re.findall(pattern_brief, raw)
+            self.case_brief['procedure'] = re.findall(pattern_procedure, raw)
+            self.case_brief['court'] = re.findall(pattern_court, raw)
+            self.case_brief['download'] = 'N' * len(self.case_brief['name'])
+            break
+            # if self.case_brief['download'] != '':
+            #     self.logger.debug("Get case list {} on page {}".format(self.case_brief['name'], index))
+            #     break
+            # else:
+            #     self.logger.info("Get empty page, try it 10 seconds later.")
+            #     time.sleep(10)
         if index == 1:
             total_number = re.search('"Count":"([0-9]+)"', raw)
             self.logger.info("total item of {} is {}".format(self.search_criteria, total_number.group(1)))

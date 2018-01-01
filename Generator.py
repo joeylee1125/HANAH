@@ -45,7 +45,7 @@ def get_report_single(path_2_file, year, trial):
                 print('%s ----> %s' % (k, v))
             print('')
 
-def main():    
+def main():
     desc = " [ -F|--folder folder ] [ -f|--file file]."
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-F', '--folder', action='store')
