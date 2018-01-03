@@ -206,7 +206,7 @@ class WenShu:
                     continue
                 # 返回的数据进行序列化
                 data_unicode = json.loads(r.text)
-                #self.logger.debug('Response is {}'.format(data_unicode))
+                self.logger.debug('Response is {}'.format(data_unicode))
                 # data_json = response.json()
 
                 if data_unicode == u'remind key':
@@ -269,7 +269,7 @@ class WenShu:
         pattern_id = re.compile('"文书ID":"(.*?)"', re.S)
         pattern_date = re.compile('"裁判日期":"(.*?)"', re.S)
         pattern_case_id = re.compile('"案号":"(.*?)"', re.S)
-        pattern_brief = re.compile('"裁判要旨段原文":"(.*?)"', re.S)
+        # pattern_brief = re.compile('"裁判要旨段原文":"(.*?)"', re.S)
         pattern_procedure = re.compile('"审判程序":"(.*?)"', re.S)
         pattern_court = re.compile('"法院名称":"(.*?)"', re.S)
         self.logger.info("Get case list on page {}".format(index))
@@ -280,21 +280,17 @@ class WenShu:
             self.case_brief['doc_id'] = re.findall(pattern_id, raw)
             self.case_brief['date'] = re.findall(pattern_date, raw)
             self.case_brief['case_id'] = re.findall(pattern_case_id, raw)
-            self.case_brief['brief'] = re.findall(pattern_brief, raw)
+            # self.case_brief['brief'] = re.findall(pattern_brief, raw)
             self.case_brief['procedure'] = re.findall(pattern_procedure, raw)
             self.case_brief['court'] = re.findall(pattern_court, raw)
             self.case_brief['download'] = 'N' * len(self.case_brief['name'])
-            break
             # if self.case_brief['download'] != '':
             #     self.logger.debug("Get case list {} on page {}".format(self.case_brief['name'], index))
             #     break
             # else:
             #     self.logger.info("Get empty page, try it 10 seconds later.")
             #     time.sleep(10)
-        if index == 1:
-            total_number = re.search('"Count":"([0-9]+)"', raw)
-            self.logger.info("total item of {} is {}".format(self.search_criteria, total_number.group(1)))
-            return total_number.group(1)
+            return self.case_brief
 
 
 def main():

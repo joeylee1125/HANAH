@@ -43,7 +43,7 @@ class VerdictAnalyser:
         self.defendent_section_pattern.append(re.compile('被告人?.*?人民检察院指控'))
         self.defendent_section_pattern.append(re.compile('被告人?.*?自诉'))
         self.defendent_info_pattern = list()
-        self.defendent_info_pattern.append(re.compile('被告人?.*?(?=被告人|起诉书|自诉|人民检察院指控|指控)'))
+        self.defendent_info_pattern.append(re.compile('被告人?.*?(?=被告|起诉书|自诉|人民检察院指控|指控)'))
         self.convict_section_pattern = []
         self.convict_section_pattern.append(re.compile('(?<=判决如下).*如不服本判决'))
         self.convict_section_pattern.append(re.compile('(?<=判决如下).*提出上诉'))
@@ -108,6 +108,7 @@ class VerdictAnalyser:
         self.defendent_pattern.append(re.compile('(?<=被告人).+?[，,（(。]'))
         # self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201|犯)'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201)'))
+        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.ss_last_name + '\w{1,3}(?=[。，,（(]|201)'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.ss_name))
         self.defendent_pattern.append(re.compile('(?<=被告人..情况姓名)' + CourtList.last_name + '\w{0,4}[，（|出生日期|性别]'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}(?=成都市)'))
@@ -135,9 +136,9 @@ class VerdictAnalyser:
         self.logger.setLevel(logging.DEBUG)
         # create console handler and set level to debug
         self.ch = logging.StreamHandler()
-        #self.ch.setLevel(logging.DEBUG)
+        self.ch.setLevel(logging.DEBUG)
         # self.ch.setLevel(logging.INFO)
-        self.ch.setLevel(logging.WARNING)
+        # self.ch.setLevel(logging.WARNING)
 
         # create formatter
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
