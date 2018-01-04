@@ -1,23 +1,17 @@
 # -*- coding: UTF-8 -*-
-import re
+
 import sys
 import os
-# import time
-import csv
 import argparse
-# import codecs
 
-from shutil import move
-# from shutil import copyfile
-# from docx import Document
-
+import CourtList
 import VerdictAnalyser
-# import CourtList
-
+import FileOperations
 
 def get_report(folder, year, trial):
     analyse_result = []
     file_list = os.listdir(folder)
+    report_name = folder + "_report.csv"
     i = 0
     for file in file_list:
         print('{} Begin to analyse...    {}'.format(i, file))
@@ -30,8 +24,7 @@ def get_report(folder, year, trial):
         results = verdict.analyse_doc()
         if results is not None:
             analyse_result.extend(results)
-    verdict.dump2csv(analyse_result, folder)
-
+    FileOperations.MyCsvFile(report_name).write_dict(CourtList.report_col_names, analyse_result)
 
 def get_report_single(path_2_file, year, trial):
     if trial == '2':

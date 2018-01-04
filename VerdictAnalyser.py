@@ -1,30 +1,21 @@
 # -*- coding: UTF-8 -*-
-import csv
 import re
-import sys
 import logging
-import os
-# import time
-# import codecs
-# from datetime import date, datetime
 
-# from shutil import copyfile
-from docx import Document
-from docx.opc.exceptions import PackageNotFoundError
 import CourtList
+import FileOperations
 
 
 class VerdictAnalyser:
     def __init__(self, doc_name=None, year=2016):
-        self.accuse_section = ''
         self.content = ''
         self.year = year
+        self.doc_name = doc_name
         self.df_sec = ''
         self.cv_sec = ''
         self.last_sec = ''
         self.first_sec = ''
         self.second_sec = ''
-        self.doc_name = doc_name
         self.case_id_pattern = []
         self.case_id_pattern.append(re.compile('[(（]\d\d\d\d[）)].*?号'))
         self.case_id_pattern.append(re.compile('[(（]\d\d\d\d[）)][\w\d]+[初]([字第]+)?[\d]+'))
@@ -120,11 +111,7 @@ class VerdictAnalyser:
         self.born_date_pattern = []
         self.born_date_pattern.append(re.compile('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出?生'))
         self.born_date_pattern.append(re.compile('生于(\d\d\d\d)年(\d{1,2})月(\d{1,2})日'))
-        self.fieldnames = ['file_name', 'verdict', 'id', 'court', 'region', 'court_level', 'prosecutor',
-                           'procedure', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education',
-                           'd_job', 'd_lawyer', 'd_lawyer_n', 'd_s_lawyer', 'd_s_lawyer_n', 'd_has_lawyer',
-                           'd_charge', 'd_charge_c', 'd_prison', 'd_prison_l', 'd_probation', 'd_probation_l',
-                           'd_fine', 'd_bail']
+
         self._init_log()
 
     def __del__(self):
@@ -153,30 +140,11 @@ class VerdictAnalyser:
         self.content = self.content.replace(' ', '')
 
 
-    def dump2csv(self, results, folder_name):
-        file = folder_name + 'report.csv'
-        self.logger.info("dump to csv".format(file))
-        with open(file, 'w', newline='', encoding='utf-8_sig') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
-            writer.writeheader()
-            for r in results:
-                writer.writerow(r)
-
-
     def _read_doc(self):
         if 'txt' in self.doc_name:
-            try:
-                with open(self.doc_name, 'r') as txt_file:
-                    self.content = txt_file.read()
-            except Exception as e:
-                self.logger.info("Failed load file {} with error {}".format(self.doc_name, e))
+            self.content = FileOperations.MyTextFile(self.doc_name).read()
         else:
-            try:
-                document = Document(self.doc_name) if self.doc_name else sys.exit(0)
-                l = [paragraph.text for paragraph in document.paragraphs]
-                self.content = ''.join(str(e) for e in l)
-            except PackageNotFoundError:
-                print("Document %s is invalid" % self.doc_name)
+            self.content = FileOperations.MyDocFile(self.doc_name).read()
 
 
     def _findall_by_mul_pattern(self, pattern_list, content):
