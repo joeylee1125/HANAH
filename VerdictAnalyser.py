@@ -141,10 +141,10 @@ class VerdictAnalyser:
 
 
     def _read_doc(self):
-        if 'txt' in self.doc_name:
-            self.content = FileOperations.MyTextFile(self.doc_name).read()
-        else:
+        if 'doc' in self.doc_name:
             self.content = FileOperations.MyDocFile(self.doc_name).read()
+        else:
+            self.content = FileOperations.MyTextFile(self.doc_name).read()
 
 
     def _findall_by_mul_pattern(self, pattern_list, content):

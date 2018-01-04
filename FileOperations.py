@@ -19,6 +19,12 @@ class MyFolder:
     def copy(self):
         pass
 
+    def get_file_list(self):
+        return os.listdir(self.name)
+
+    def delete(self):
+        pass
+
 class MyFile:
     def __init__(self, file_name):
         self.name = file_name
@@ -44,6 +50,12 @@ class MyFile:
 
     def append(self):
         pass
+
+    def get_size(self):
+        return os.path.getsize(self.name)
+
+    def exists(self):
+        return os.path.exists(self.name)
 
 class MyTextFile(MyFile):
     def __init__(self, file_name):
