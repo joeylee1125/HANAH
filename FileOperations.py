@@ -2,12 +2,17 @@
 import csv
 import os
 import shutil
+import pytesseract
+from PIL import Image
 from docx import Document
 
 
 class MyFolder:
     def __init__(self, folder_name):
         self.name = folder_name
+
+    def __str__(self):
+        return self.__name__
 
     def create(self):
         if not os.path.exists(self.name):
@@ -28,7 +33,11 @@ class MyFolder:
 class MyFile:
     def __init__(self, file_name):
         self.name = file_name
-        
+
+    def __str__(self):
+        return '{self.__class__.__name__} {self.name}'.format(self=self)
+
+
     def create(self):
         with open(self.name, 'w') as f:
             f.close()
@@ -118,3 +127,57 @@ class MyDocFile(MyFile):
         except Exception as e:
             print(e)
             print("Document %s is invalid" % self.name)
+
+
+class MyImageFile(MyFile):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+
+    def read(self):
+        with open(self.name, 'rb') as f:
+            self.content = Image.open(f)
+
+    def write(self, content):
+        with open(self.name, 'wb') as f:
+            f.write(content)
+
+    def _process_img(self, img, threshold=180):
+        '''对图片进行二值化 255 是白色 0是黑色'''
+        # 灰度转换
+        img = img.convert('L')
+        # 二值化
+        pixels = img.load()
+        for x in range(img.width):
+            for y in range(img.height):
+                pixels[x, y] = 255 if pixels[x, y] > threshold else 0
+        return img
+
+    def _smooth(self, picture):
+        '''平滑降噪
+            二值化的图片传入 去除像噪小点
+        '''
+        pixels = picture.load()
+        (width, height) = picture.size
+
+        xx = [1, 0, -1, 0]
+        yy = [0, 1, 0, -1]
+
+        for i in range(width):
+            for j in range(height):
+                if pixels[i, j] != 255:
+                    count = 0
+                    for k in range(4):
+                        try:
+                            if pixels[i + xx[k], j + yy[k]] == 255:
+                                count += 1
+                        except IndexError:  # 忽略访问越界的情况
+                            pass
+                    if count > 3:
+                        pixels[i, j] = 255
+        return picture
+
+    def recognize(self, lang='eng'):
+        with open(self.name, 'rb') as f:
+            img = self._smooth(self._process_img(Image.open(f)))
+        print(pytesseract.image_to_string(img, lang))
+        return pytesseract.image_to_string(img, lang)

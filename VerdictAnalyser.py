@@ -114,6 +114,9 @@ class VerdictAnalyser:
 
         self._init_log()
 
+    def __str__(self):
+        return self.__class__.__name__
+
     def __del__(self):
         self.logger.removeHandler(self.ch)
 

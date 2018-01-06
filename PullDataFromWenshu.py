@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import argparse
 import time
 import Spider
 import CourtList
@@ -33,10 +34,7 @@ def download_caselists(search_criteria, case_folder):
             if 'total_number' in file:
                 total_number = file[13:]
 
-    max_page = int(total_number) // 20
-    if int(total_number) % 20:
-        max_page += 1
-
+    max_page = int(total_number) // 20 if int(total_number) % 20 == 0 else (int(total_number) // 20) + 1
     for index in range(1, max_page + 1):
         csv_file = FileOperations.MyCsvFile(case_folder + '\\' + 'case_list_' + str(index) + '.csv')
         if not csv_file.exists() or csv_file.get_size() == 0:
@@ -55,7 +53,8 @@ def debug_download_single_list(wenshu, search_criteria, case_folder, index):
     csv_file.write(wenshu.case_brief)
 
 
-def download_case(wenshu, case_id):
+def download_case(case_id):
+    wenshu = Spider.WenShu()
     return wenshu.get_case(case_id)
 
 
@@ -63,10 +62,75 @@ def debug_download_case(wenshu, doc_id):
     t = download_case(wenshu, doc_id)
     print(t)
 
+def download_1st_level_case_list(year, base_dir):
+    for court in CourtList.court_list_all:
+        search_criteria = "案件类型:刑事案件,审判程序:一审,法院地域:四川省,裁判年份:" + year + ",文书类型:判决书," + "基层法院:" + court
+        case_list_dir = base_dir + '\\' + year + '\\CaseLists\\' + court
+        FileOperations.MyFolder(case_list_dir).create()
+        download_caselists(search_criteria, case_list_dir)
+    return None
+
+def download_mid_level_case_list(year, base_dir):
+    court = '中级'
+    search_criteria = "案件类型:刑事案件,法院地域:四川省,裁判年份:2014,法院层级:中级法院,文书类型:判决书,审判程序:一审"
+    case_list_dir = base_dir + '\\' + year + '\\CaseLists\\' + court
+    FileOperations.MyFolder(case_list_dir).create()
+    download_caselists(search_criteria, case_list_dir)
+
+def download_cases(year, base_dir):
+    case_lists_folder = base_dir + '\\' + year + '\\CaseLists'
+    for dir_r in FileOperations.MyFolder(case_lists_folder).get_file_list():
+        download_a_folder_cases(year, base_dir, dir_r)
+
+def download_a_folder_cases(year, base_dir, region_folder):
+    case_lists_folder = base_dir + '\\' + year + '\\CaseLists'
+    cases_folder = base_dir + '\\' + year + '\\Cases'
+    FileOperations.MyFolder(cases_folder + '\\' + region_folder).create()
+    for file in FileOperations.MyFolder(case_lists_folder + '\\' + region_folder).get_file_list():
+        if 'csv' in file:
+            csv_file = FileOperations.MyCsvFile(case_lists_folder + '\\' + region_folder + '\\' + file)
+            case_list = csv_file.read_dict()
+            for i in range(len(case_list['name'])):
+                # Remove ? in case name, it's invalide in windows.
+                case_file = FileOperations.MyTextFile(
+                    cases_folder + '\\' + region_folder + '\\' + case_list['name'][i].replace("?", "") + '_' + case_list['doc_id'][
+                        i] + '.txt')
+                if not case_file.exists() and case_list['download'][i] != 'Invalid':
+                    #                    if not case_file.exists() or case_file.get_size() < 1000 or  or case_list['download'][i] == 'N':
+                    t = download_case(case_list['doc_id'][i])
+                    print("Trying to download case {} in {}: {}...".format(i, file, case_list['name'][i]))
+                    if t:
+                        try:
+                            case_file.write(t)
+                            case_list['download'][i] = 'Y'
+                            time.sleep(2)
+                            print("Case {} in {}: {} is downloaded.".format(i, file, case_list['name'][i]))
+                        except Exception as e:
+                            print("Case {} in {}: {} download failed. {}".format(i, file, case_list['name'][i], e))
+                        if len(t) < 100:
+                            case_list['download'][i] = 'Invalid'
+                            print("Case {} in {}: {} download failed. The content size is less than 100 bytes.".format(i, file, case_list['name'][i]))
+                    else:
+                        print("Case {} in {}: {} download failed. The content is empty.".format(i, file, case_list['name'][i]))
+                        case_list['download'][i] = 'N'
+            csv_file.write(case_list)
 
 def main():
     year = '2014'
     base_dir = 'C:\\Users\\lij37\\Cases'
+    #download_1st_level_case_list(year, base_dir)
+    #download_mid_level_case_list(year, base_dir)
+    #download_cases(year, base_dir)
+    desc = ""
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument('-F', '--folder', action='store')
+    args = parser.parse_args()
+    if args.folder:
+        download_a_folder_cases(year, base_dir, args.folder)
+    else:
+        download_cases(year, base_dir)
+
+    return None
     # case_list_dir = base_dir + '\\' + year + '\\' + court
     case_folder = FileOperations.MyFolder(base_dir + '\\' + year + '\\' + '案件')
     debug_case_id = '2db9117a-d235-4f8d-8bd7-57f7029f2546'
@@ -79,40 +143,15 @@ def main():
     # debug_download_single_list(wenshu, search_criteria, case_list_dir, '2')
     # return None
 
-    for court in CourtList.court_list_all:
-        search_criteria = "案件类型:刑事案件,审判程序:一审,法院地域:四川省,裁判年份:" + year + ",文书类型:判决书," + "基层法院:" + court
-        case_list_dir = base_dir + '\\' + year + '\\' + court
-        FileOperations.MyFolder(case_list_dir).create()
-        download_caselists(search_criteria, case_list_dir)
-    return None
+
+
+
 
     # refresh_total_number(wenshu, search_criteria, case_list_dir)
     case_list = FileOperations.MyCsvFile('C:\\Users\\lij37\\Code\\NewHan2017\\自贡市自流井区人民法院\\case_list_1.csv').read_dict()
     # case_name = '周某某危险驾驶一案一审判决书'
     # case_id = 'a9a069cd-832a-4f22-a576-a74d0123ca00'
-    case_folder.create()
-    for file in case_folder.get_file_list():
-        if 'csv' in file:
-            csv_file = FileOperations.MyCsvFile(case_list_dir + '\\' + file)
-            case_list = csv_file.read_dict()
-            for i in range(len(case_list['name'])):
-                # if case_list['download'][i] != 'Y':
-                case_file = FileOperations.MyTextFile(case_dir + '\\' + case_list['name'][i] + '_' + case_list['doc_id'][i] + '.txt')
-                if not case_file.exists() or case_file.get_size() < 1000:
-                    print("Case {} in {}: {} {} is downloading...".format(i, file, case_list['name'][i],
-                                                                          case_list['doc_id'][i]))
-                    t = download_case(wenshu, case_list['doc_id'][i])
-                    if t:
-                        try:
-                            case_file.write(t)
-                            case_list['download'][i] = 'Y'
-                            time.sleep(3)
-                        except Exception as e:
-                            print(e)
-                            case_list['download'][i] = 'Invalid'
-                    else:
-                        case_list['download'][i] = 'Invalid'
-            csv_file.write(case_list)
+
 
 if __name__ == "__main__":
     main()

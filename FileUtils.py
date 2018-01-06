@@ -13,10 +13,11 @@ from shutil import move
 from docx import Document
 
 from PIL import Image
-from io import BytesIO
-#import pytesseract as ocr
+import pytesseract as ocr
 #import tesserocr
+from io import BytesIO
 
+import FileOperations
 
 def write_text(path_2_file, t):
     with open(path_2_file, "w") as text_file:
@@ -112,7 +113,7 @@ def add_cols_2_matrix(matrix, col_list):
 
 
 def open_img():
-    with open('0.jpg', 'rb') as f:
+    with open('v.jpg', 'rb') as f:
         img = Smooth(process_img(Image.open(f)))
         print(recognize(img))
     
@@ -162,10 +163,11 @@ def recognize(img, lang='eng'):
     
     
 def main():
-    p1 = Image.open('0.jpg')
-    tesserocr.image_to_text(p1)
-
-    open_img()  
+    #p1 = Image.open('3227.jpg')
+    #tesserocr.image_to_text(p1)
+    image = FileOperations.MyImageFile('123.jpg')
+    image.recognize()
+    #open_img()
     sys.exit(0)
     desc = ""
     parser = argparse.ArgumentParser(description=desc)

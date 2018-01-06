@@ -8,6 +8,9 @@ import re
 import requests
 import time
 import urllib
+import jswenshu
+
+import FileOperations
 
 
 class WenShu:
@@ -70,6 +73,9 @@ class WenShu:
         # Init default session
         # self.sess, self.vl5x = self.get_sess()
 
+    def __str__(self):
+        return self.__class__.__name__
+
     def _init_log(self):
         # Create logger
         self.logger = logging.getLogger()
@@ -122,6 +128,7 @@ class WenShu:
         '''
         ctx1 = execjs.compile(js1)
         guid = (ctx1.call("getGuid"))
+        self.logger.info("Guid is {}".format(guid))
         return guid
 
         
@@ -134,6 +141,7 @@ class WenShu:
         }
         req1 = self.session.post(code_url, data=data)
         number = req1.text
+        self.logger.info("Number is {}".format(number))
         return number
 
         
@@ -152,6 +160,13 @@ class WenShu:
         
     def get_vl5x(self, vjkl5):
         self.logger.info("Get vl5x...")
+        p = execjs.compile(jswenshu.base_64 + jswenshu.sha1 + jswenshu.md5 + jswenshu.js_strToLong + jswenshu.js)
+        strlength = p.call('strToLong', vjkl5)
+        funcIndex = strlength % 200
+        func_s = 'makeKey_' + str(funcIndex)
+        vl5x = p.call(func_s, vjkl5)
+        self.logger.debug("vl5x is {}".format(vl5x))
+        return vl5x
         # 根据vjkl5获取参数vl5x
         js = ""
         fp1 = open('./sha1.js')
@@ -168,9 +183,24 @@ class WenShu:
         fp4.close()
         ctx2 = execjs.compile(js)
         vl5x = (ctx2.call('vl5x', vjkl5))
-        self.logger.debug("vl5x is {}".format(vl5x))
+        self.logger.debug("vl5x is {}".format(vl5x1))
         return vl5x
 
+    def get_valid_code(self):
+        # cookie访问次数过多
+        headers = self.headers2
+        #sess, vl5x = getSess()
+        #ua = random.choice(ua_list)
+        remind_captcha = self.session.get('http://wenshu.court.gov.cn/User/ValidateCode', headers=headers)
+        with open('captcha.jpg', 'wb') as f:
+            f.write(remind_captcha.content)
+        #img = retrive_img(remind_captcha)
+        captcha = input("What's the code:")
+        captcha_data = {
+            'ValidateCode': captcha
+        }
+        self.session.post('http://wenshu.court.gov.cn/Content/CheckVisitCode', headers=headers, data=captcha_data)
+        print('getFirstPage response content is remind  retry again')
         
     def load_page(self, index):
         while True:
@@ -179,6 +209,7 @@ class WenShu:
             vjkl5 = self.get_vjkl5(guid, number)
             vl5x = self.get_vl5x(vjkl5)
             headers = self.headers2
+            headers['User-Agent'] = random.choice(self.ua_list)
             # 获取数据
             url = self.url_list['list_content_url']
 
@@ -211,8 +242,9 @@ class WenShu:
 
                 if data_unicode == u'remind key':
                     # cookie 到期
-                    self.logger.info('get_page response content is remind key retry again')
-                    self.session = requests.Session()
+                    self.logger.info('get_page response content is remind key retry again, sleep 10s...')
+                    #self.session = requests.Session()
+                    #self.get_valid_code()
                     time.sleep(10)
                     continue
                 elif data_unicode == u'remind':
@@ -224,6 +256,20 @@ class WenShu:
             except Exception as e:
                 self.logger.info(e)
 
+    def validate_page(self):
+        headers = self.headers1
+        url = "http://wenshu.court.gov.cn/User/ValidateCode"
+        url2 = "http://wenshu.court.gov.cn/Content/CheckVisitCode"
+        r = self.session.get(url=url, headers=headers)
+        img = FileOperations.MyImageFile('v.jpg')
+        img.write(r.content)
+        v_code = img.recognize()
+        self.logger.debug("Validation code is {}".format(v_code))
+        data = {
+            'ValidateCode': v_code
+        }
+        r2 = self.session.post(url=url2, headers=headers, data=data)
+        self.logger.debug("Response of check visit code is {}".format(r2.text))
 
     def get_case(self, id):
         # http://wenshu.court.gov.cn/content/content?DocID=
@@ -231,10 +277,22 @@ class WenShu:
         # 获取数据
         url = 'http://wenshu.court.gov.cn/content/content?DocID=' + id
         url2 = "http://wenshu.court.gov.cn/CreateContentJS/CreateContentJS.aspx?DocID=" + id
-        r = self.session.get(url=url2, headers=headers)
+
+        while True:
+            try:
+                r = self.session.get(url=url2, headers=headers)
+                if "VisitRemind" in r.text:
+                    self.validate_page()
+                    continue
+                else:
+                    break
+            except Exception as e:
+                self.logger.debug("{}".format(e))
+                continue
         #raw = self.session.post(url=url2, headers=headers)
 #        self.logger.debug("Response.text is {}".format(r.text))
-        
+
+
         raw = re.search('<a.*div>', r.text)
  #       self.logger.debug("raw string is {}".format(raw.group()))
         try:
