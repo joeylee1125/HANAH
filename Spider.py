@@ -82,7 +82,7 @@ class WenShu:
         self.logger.setLevel(logging.DEBUG)
         # create console handler and set level to debug
         self.ch = logging.StreamHandler()
-        self.ch.setLevel(logging.DEBUG)
+        self.ch.setLevel(logging.INFO)
 
         # create formatter
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -139,7 +139,8 @@ class WenShu:
         data = {
             'guid': guid
         }
-        req1 = self.session.post(code_url, data=data)
+        headers = self.headers1
+        req1 = self.session.post(code_url, headers=headers, data=data)
         number = req1.text
         self.logger.info("Number is {}".format(number))
         return number
@@ -160,13 +161,13 @@ class WenShu:
         
     def get_vl5x(self, vjkl5):
         self.logger.info("Get vl5x...")
-        p = execjs.compile(jswenshu.base_64 + jswenshu.sha1 + jswenshu.md5 + jswenshu.js_strToLong + jswenshu.js)
-        strlength = p.call('strToLong', vjkl5)
-        funcIndex = strlength % 200
-        func_s = 'makeKey_' + str(funcIndex)
-        vl5x = p.call(func_s, vjkl5)
-        self.logger.debug("vl5x is {}".format(vl5x))
-        return vl5x
+        #p = execjs.compile(jswenshu.base_64 + jswenshu.sha1 + jswenshu.md5 + jswenshu.js_strToLong + jswenshu.js)
+        #strlength = p.call('strToLong', vjkl5)
+        #funcIndex = strlength % 200
+        #func_s = 'makeKey_' + str(funcIndex)
+        #vl5x = p.call(func_s, vjkl5)
+        #self.logger.debug("vl5x is {}".format(vl5x))
+        #return vl5x
         # 根据vjkl5获取参数vl5x
         js = ""
         fp1 = open('./sha1.js')
@@ -183,7 +184,7 @@ class WenShu:
         fp4.close()
         ctx2 = execjs.compile(js)
         vl5x = (ctx2.call('vl5x', vjkl5))
-        self.logger.debug("vl5x is {}".format(vl5x1))
+        self.logger.debug("vl5x is {}".format(vl5x))
         return vl5x
 
     def get_valid_code(self):
@@ -201,7 +202,20 @@ class WenShu:
         }
         self.session.post('http://wenshu.court.gov.cn/Content/CheckVisitCode', headers=headers, data=captcha_data)
         print('getFirstPage response content is remind  retry again')
-        
+
+
+    def get_court_list(self, mid_court):
+        headers = self.headers2
+        headers['User-Agent'] = random.choice(self.ua_list)
+        data = {
+            "Param": "中级法院:" + mid_court,
+            "parval": mid_court
+        }
+        r = self.session.post('http://wenshu.court.gov.cn/List/CourtTreeContent', headers=headers, data=data)
+        data = json.loads(r.text)
+        print(data['Child'])
+
+
     def load_page(self, index):
         while True:
             guid = self.get_guid()
@@ -246,10 +260,12 @@ class WenShu:
                     #self.session = requests.Session()
                     #self.get_valid_code()
                     time.sleep(10)
+                    self.validate_page()
                     continue
                 elif data_unicode == u'remind':
                     self.logger.info('get_page response content is remind retry again')
-                    time.sleep(60)
+                    time.sleep(10)
+                    self.validate_page()
                     continue
                 else:
                     return data_unicode
@@ -263,7 +279,7 @@ class WenShu:
         r = self.session.get(url=url, headers=headers)
         img = FileOperations.MyImageFile('v.jpg')
         img.write(r.content)
-        v_code = img.recognize()
+        v_code = img.read()
         self.logger.debug("Validation code is {}".format(v_code))
         data = {
             'ValidateCode': v_code

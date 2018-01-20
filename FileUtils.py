@@ -166,7 +166,7 @@ def main():
     #p1 = Image.open('3227.jpg')
     #tesserocr.image_to_text(p1)
     image = FileOperations.MyImageFile('123.jpg')
-    image.recognize()
+    image.read()
     #open_img()
     sys.exit(0)
     desc = ""

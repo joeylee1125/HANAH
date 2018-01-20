@@ -2,11 +2,30 @@
 
 import sys
 import os
+import re
 import argparse
 
 import CourtList
 import VerdictAnalyser
 import FileOperations
+
+def get_sp_list(folder):
+        file_list = os.listdir(folder)
+        i, j = 0, 0
+        for file in file_list:
+            i += 1
+            file_name = folder + '\\' + file
+            if get_sp(file_name):
+                j += 1
+                print(j, file_name)
+
+def get_sp(doc_name):
+    if 'doc' in doc_name:
+        content = FileOperations.MyDocFile(doc_name).read()
+        if re.search('自诉人', content):
+            return doc_name
+        else:
+            return None
 
 def get_report(folder, year, trial):
     analyse_result = []
@@ -52,7 +71,8 @@ def main():
     if args.file:
         get_report_single(args.folder + '\\' + args.file, args.year, trial)
     elif args.folder:
-        get_report(args.folder, args.year, trial)
+        get_sp_list(args.folder)
+        #get_report(args.folder, args.year, trial)
     else:
         print(sys.argv[0] + desc)
 

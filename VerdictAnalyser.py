@@ -105,7 +105,7 @@ class VerdictAnalyser:
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}(?=成都市)'))
         self.defendent_pattern.append(re.compile('(?<=被告人姓名)' + CourtList.last_name + '\w{0,4}出生日期'))
         self.defendent_pattern.append(re.compile('(?<=被告)人?[：:]?' + CourtList.last_name + '\w{0,4}(?=[。，,（(]|201)'))
-        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w\w' + CourtList.last_name + '某某'))
+        self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w\w' + CourtList.last_name + '[某甲]+'))
         self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,2}'))
         self.defendent_pattern.append(re.compile(CourtList.invalid_name))
         self.born_date_pattern = []
@@ -126,9 +126,9 @@ class VerdictAnalyser:
         self.logger.setLevel(logging.DEBUG)
         # create console handler and set level to debug
         self.ch = logging.StreamHandler()
-        self.ch.setLevel(logging.DEBUG)
-        # self.ch.setLevel(logging.INFO)
-        # self.ch.setLevel(logging.WARNING)
+        #self.ch.setLevel(logging.DEBUG)
+        #self.ch.setLevel(logging.INFO)
+        self.ch.setLevel(logging.WARNING)
 
         # create formatter
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -222,6 +222,9 @@ class VerdictAnalyser:
         else:
             return '普通程序'
 
+    def _get_private_prosecution(self):
+        if self._search('自诉人'):
+            return '自诉人'
 
     def _get_charge_class(self, charge):
         for g in CourtList.zm_group_list[:-1]:
@@ -247,11 +250,11 @@ class VerdictAnalyser:
             d = re.search(p, context)
             if d:
                 # used to solve issue 被告人：王某轩 and 人：王某轩.
-                if i == 5:
+                if i == 6:
                     d = re.search(CourtList.last_name + '\w{0,4}', d.group())
                     break
                 # used to solve issue 被告人邓运华邓某某.    
-                if i == 6:
+                if i == 7:
                     d = re.search(CourtList.last_name + '\w\w', d.group())
                     break
                 else:
@@ -331,8 +334,8 @@ class VerdictAnalyser:
         while i < j:
             sc = 0
             for d in d_name:
-              if re.search(d, cv_list[i]):
-                  sc += 1
+                if re.search(d, cv_list[i]):
+                    sc += 1
             if sc != 1:
                 cv_list.pop(i)
                 j -= 1
@@ -611,6 +614,7 @@ class VerdictAnalyser:
         case_info['court_level'] = self._get_court_level(case_info['court'])
         case_info['prosecutor'] = self._get_prosecutor()
         case_info['procedure'] = self._get_procedure()
+        case_info['private_prosecution'] = self._get_private_prosecution()
         case_info['year'] = self._get_year(case_info['id'])
         case_info['defendent'] = self._get_defendent_info()
 
@@ -646,6 +650,7 @@ class VerdictAnalyser:
             output[d]['d_probation_l'] = case_info['defendent'][d]['probation_l']
             output[d]['d_fine'] = case_info['defendent'][d]['fine']
             output[d]['d_bail'] = case_info['defendent'][d]['bail']
+            output[d]['d_private_prosecution'] = case_info['private_prosecution']
         self.logger.debug("Output of case {} is {}".format(self.doc_name, output))
         return output
 

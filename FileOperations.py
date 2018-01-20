@@ -45,11 +45,11 @@ class MyFile:
     def delete(self):
         os.remove(self.name)
         
-    def move(self, dst):
-        shutil.move(self.name, dst)
+    def move(self, src, dst):
+        shutil.move(src + "\\" + self.name, dst)
         
-    def copy(self, dst):
-        shutil.copy(self.name, dst)
+    def copy(self, src, dst):
+        shutil.copy(src + "\\" + self.name, dst)
         
     def read(self):
         pass
@@ -74,6 +74,7 @@ class MyTextFile(MyFile):
         try:
             with open(self.name, 'r') as f:
                 self.content = f.read()
+                return self.content
         except Exception as e:
             print(e)
 
@@ -122,7 +123,7 @@ class MyDocFile(MyFile):
             document = Document(self.name)
             l = [paragraph.text for paragraph in document.paragraphs]
             self.content = ''.join(str(e) for e in l)
-            print(self.content)
+            #print(self.content)
             return self.content
         except Exception as e:
             print(e)
@@ -133,9 +134,6 @@ class MyImageFile(MyFile):
     def __init__(self, file_name):
         super().__init__(file_name)
 
-    def read(self):
-        with open(self.name, 'rb') as f:
-            self.content = Image.open(f)
 
     def write(self, content):
         with open(self.name, 'wb') as f:
@@ -176,7 +174,7 @@ class MyImageFile(MyFile):
                         pixels[i, j] = 255
         return picture
 
-    def recognize(self, lang='eng'):
+    def read(self, lang='eng'):
         with open(self.name, 'rb') as f:
             img = self._smooth(self._process_img(Image.open(f)))
         print(pytesseract.image_to_string(img, lang))
