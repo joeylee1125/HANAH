@@ -8,6 +8,7 @@ import argparse
 import CourtList
 import VerdictAnalyser
 import FileOperations
+import VerdictAnalyserv2
 
 def get_sp_list(folder):
         file_list = os.listdir(folder)
@@ -58,6 +59,47 @@ def get_report_single(path_2_file, year, trial):
             print('')
 
 def main():
+    path_2_file = "C:\\Users\\lij37\\Cases\\2017\\Cases\\成都市双流区人民法院\\严德玉盗窃罪一审刑事判决书_d0bb7fdb-b936-4b4e-9cbe-a7380113c897.txt"
+    verdict = VerdictAnalyserv2.VerdictAnalyser(path_2_file, '2017')
+    print(verdict.dir_name)
+    print(verdict.file_name)
+    for key, value in verdict.analyse_doc().items():
+        print("{:-<30} {}".format(key, value))
+    return None
+    base_dir = "C:\\Users\\lij37\\Cases"
+    year = 2017
+    my_cases_folder = FileOperations.MyFolder(base_dir + '\\'  + str(year) + '\\cases')
+    check = True
+    for region in my_cases_folder.get_file_list():
+        my_region_folder = FileOperations.MyFolder(my_cases_folder.name + '\\' + region)
+        print(my_region_folder.name)
+        if "江油市人民法院" in my_region_folder.name:
+            check = True
+        if not check:
+            continue
+        for my_file in my_region_folder.get_file_list():
+            path_2_file = my_region_folder.name + '\\' + my_file
+            verdict = VerdictAnalyserv2.VerdictAnalyser(path_2_file, year)
+            #print(verdict)
+            #print(verdict.content)
+            if verdict.analyse_doc():
+                if verdict.defendent_section is None:
+                    print("defendent section not found.")
+                    print(verdict)
+                    print(verdict.content)
+                    return None
+                if verdict.convict_section is None:
+                    print("convict section not found.")
+                    print(verdict)
+                    print(verdict.content)
+                    return None
+                if verdict.head_section is None:
+                    print("head section not found.")
+                    print(verdict)
+                    print(verdict.content)
+                    return None
+    return None
+
     desc = " [ -F|--folder folder ] [ -f|--file file]."
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-F', '--folder', action='store')
