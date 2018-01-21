@@ -318,7 +318,7 @@ report_col_names = ['file_name', 'verdict', 'id', 'court', 'region', 'court_leve
               'procedure', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education',
               'd_job', 'd_lawyer', 'd_lawyer_n', 'd_s_lawyer', 'd_s_lawyer_n', 'd_has_lawyer',
               'd_charge', 'd_charge_c', 'd_prison', 'd_prison_l', 'd_probation', 'd_probation_l',
-              'd_fine', 'd_bail', 'd_private_prosecution']
+              'd_fine', 'd_bail']
 
 
 
@@ -891,9 +891,6 @@ nation_list = '(\
 鄂温克|德昂|保安|裕固|京|塔塔尔|独龙|鄂伦春|赫哲|\
 门巴|珞巴|基诺)'
 
-education_list = '(大学|大专|中专|专科|高中|初中|小学|文盲|不识字)'
-job_list = '(无业|经商|农民|职工|务农|个体|修理工|驾驶员|粮农|工作人员|农村居民|无职业|原系|务工人员|教师)'
-# 原支部书记,原村民委员会
 
 ##########FROM HERE ######################
 ch_en_symbol_dict = {"（":"(",
@@ -904,8 +901,41 @@ ch_en_symbol_dict = {"（":"(",
                      "；":";",
                      "、":","}
 
+ch_en_number_dict = {
+"一": 1,
+"二": 2,
+"三": 3,
+"四": 4,
+"五": 5,
+"六": 6,
+"七": 7,
+"八": 8,
+"九": 9,
+"十": 10,
+"十一": 11,
+"十二": 12,
+"十三": 13,
+"十四": 14,
+"十五": 15,
+"十六": 16,
+"一六": 16,
+"十七": 17,
+"一七": 17,
+"十八": 18,
+"十九": 19,
+"二十": 20,
+"二十一": 21,
+"二十二": 22,
+"二十三": 23,
+"二十四": 24,
+"二十五": 25,
+"二十六": 26,
+"二十七": 27,
+"二十八": 28,
+"二十九": 29,
+"三十":  30}
 ########## Patterns #######################
-defendent_section_pattern = [re.compile('被告人?.*?(?:提起公诉)'),
+defendant_section_pattern = [re.compile('被告人?.*?(?:提起公诉)'),
                              re.compile('被告人?.*?(?:指控)'),
                              re.compile('被告人?.*?(?:起诉书)'),
                              re.compile('被告人?.*?(?:审理查明)')]
@@ -922,5 +952,68 @@ case_id_pattern = [re.compile(r"\(\d{4}\).*?号"),
                    re.compile(r"\(\d{4}\)[\w\d]+[初]([字第]+)?[\d]+号?")]
 
 court_pattern = [re.compile(r"\w+人民法院")]
+
+prosecutor_pattern = [re.compile(r"(?<=公诉机关).*?人民检察院")]
+
+convict_info_pattern = re.compile(r"被告人.*?(?=被告人|不服本判决|审|$)")
+
+defendant_info_pattern = [re.compile('被告人?.*?(?=被告|提起公诉|指控|起诉书|审理查明)')]
+
+defendant_pattern = [re.compile('(?<=被告人)' + last_name + '\w{1,3}(?=[.,(]|201)')]
+
+born_date_pattern = [re.compile('(\d\d\d\d)年(\d{1,2})月(\d{1,2})日出?生'),
+                     re.compile('生于(\d\d\d\d)年(\d{1,2})月(\d{1,2})日')]
+
+defendant_lawyer_pattern = [re.compile('(?<!指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)(?:律师|实习律师)'),
+                            re.compile('(?<!指定|指派)辩护人\w{3}')]
+
+defendant_s_lawyer_pattern = [re.compile('(?<=指定|指派)辩护人.*?(?:事务所|法律援助中心|分所)律师'),
+                              re.compile('(?<=指定|指派)辩护人\w{3}')]
+
+defendant_sex_pattern = re.compile('(?<=,)[男女](?=[,.])')
+
+defendant_nation_pattern = re.compile('(?<=,)' + nation_list + '族(?=[,.])')
+
+defendant_education_pattern = re.compile(r"(大学|大专|中专|专科|高中|初中|小学|文盲|不识字)")
+
+defendant_job_pattern = re.compile(r"(无业|经商|农民|职工|务农|个体|修理工|驾驶员|粮农|工作人员|农村居民|无职业|原系|务工人员|教师)")
+# 原支部书记,原村民委员会
+
+defendant_bail_pattern = re.compile(r"取保候审")
+
+
+defendant_prison_pattern = [re.compile('有期徒刑.{1,6}月'),
+                            re.compile('有期徒刑.{1,3}年'),
+                            re.compile('拘役.{1,5}月'),
+                            re.compile('拘役.年'),
+                            re.compile('管制.{1,5}月'),
+                            re.compile('管制.年'),
+                            re.compile('免[予于]刑事处罚'),
+                            re.compile('无期徒刑.*?(?=[.,;(])'),
+                            re.compile('死刑.*?(?=[.,;(])'),
+                            re.compile('无罪'),
+                            re.compile('(?<=判)(!决).*?(?=[.,;(])')]
+
+
+defendant_probation_pattern = [re.compile('缓刑.{1,5}月'),
+                               re.compile('缓刑.年'),
+                               re.compile('缓期.*?执行')]
+
+defendant_fine_pattern = [re.compile('(?<=罚金).*?(?=元)')]
+
+#self.defendent_pattern.append(re.compile('(?<=被告人).+?[，,（(。]'))
+# self.defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,3}(?=[。，,（(]|201|犯)'))
+#defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.ss_last_name + '\w{1,3}(?=[。，,（(]|201)'))
+#defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.ss_name))
+#defendent_pattern.append(re.compile('(?<=被告人..情况姓名)' + CourtList.last_name + '\w{0,4}[，（|出生日期|性别]'))
+#defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}(?=成都市)'))
+#defendent_pattern.append(re.compile('(?<=被告人姓名)' + CourtList.last_name + '\w{0,4}出生日期'))
+#defendent_pattern.append(re.compile('(?<=被告)人?[：:]?' + CourtList.last_name + '\w{0,4}(?=[。，,（(]|201)'))
+#defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w\w' + CourtList.last_name + '[某甲]+'))
+#defendent_pattern.append(re.compile('(?<=被告人)' + CourtList.last_name + '\w{1,2}'))
+##defendent_pattern.append(re.compile(CourtList.invalid_name))
+
+
+
 #self.case_id_pattern.append()
 #self.case_id_pattern.append(re.compile('\d{4}[\w\d]+[初]([字第]+)?[\d]+号'))
