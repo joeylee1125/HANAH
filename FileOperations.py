@@ -45,11 +45,11 @@ class MyFile:
     def delete(self):
         os.remove(self.name)
         
-    def move(self, src, dst):
-        shutil.move(src + "\\" + self.name, dst)
+    def move(self, dst):
+        shutil.move(self.name, dst)
         
-    def copy(self, src, dst):
-        shutil.copy(src + "\\" + self.name, dst)
+    def copy(self, dst):
+        shutil.copy(self.name, dst)
         
     def read(self):
         pass
@@ -62,6 +62,12 @@ class MyFile:
 
     def get_size(self):
         return os.path.getsize(self.name)
+
+    def get_filename(self):
+        return os.path.basename(self.name)
+
+    def get_dirname(self):
+        return os.path.dirname(self.name)
 
     def exists(self):
         return os.path.exists(self.name)

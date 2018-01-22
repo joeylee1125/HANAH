@@ -616,12 +616,12 @@ class VerdictAnalyser:
         case_info['procedure'] = self._get_procedure()
         case_info['private_prosecution'] = self._get_private_prosecution()
         case_info['year'] = self._get_year(case_info['id'])
-        case_info['defendent'] = self._get_defendent_info()
+        case_info['defendant'] = self._get_defendent_info()
 
         # print(case_info['defendent'])
-        defendent_num = len(case_info['defendent'])
-        output = [dict() for x in range(defendent_num)]
-        for d in range(defendent_num):
+        defendant_num = len(case_info['defendant'])
+        output = [dict() for x in range(defendant_num)]
+        for d in range(defendant_num):
             output[d]['file_name'] = case_info['name']
             output[d]['verdict'] = case_info['verdict']
             output[d]['id'] = case_info['id']

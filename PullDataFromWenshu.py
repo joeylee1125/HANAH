@@ -199,12 +199,12 @@ def main():
     year = '2017'
     base_dir = 'C:\\Users\\lij37\\Cases'
 
-#    for mon in range(1, 2):
-#        for day in range(1, 20):
-#            upload_date = '2018-' + '{0:02d}'.format(mon) + '-' + '{0:02d}'.format(day)
-#            download_case_list_by_upload_date(year, base_dir, upload_date, upload_date)
-#    download_case_by_upload_date(year, base_dir)
-#    return None
+    for mon in range(1, 2):
+        for day in range(21, 22):
+            upload_date = '2018-' + '{0:02d}'.format(mon) + '-' + '{0:02d}'.format(day)
+            download_case_list_by_upload_date(year, base_dir, upload_date, upload_date)
+    download_case_by_upload_date(year, base_dir)
+    return None
     #download_1st_level_case_list(year, base_dir)
     #download_mid_level_case_list(year, base_dir)
     #get_court_list(CourtList.court_list['zhongji'])

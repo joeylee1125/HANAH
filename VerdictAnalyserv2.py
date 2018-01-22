@@ -39,6 +39,7 @@ class VerdictAnalyser:
     def _clean(self):
         self._remove_space()
         self._replace_ch_symbol()
+        self._remove_symbol()
 
     def _replace_ch_symbol(self):
         for key, value in StaticUtils.ch_en_symbol_dict.items():
@@ -47,14 +48,18 @@ class VerdictAnalyser:
     def _remove_space(self):
         self.content = re.sub('\s+', '', self.content)
 
+    def _remove_symbol(self):
+        self.content = re.sub(r"&middot;", '', self.content)
+        self.content = re.sub(r"& bull;", '', self.content)
+
     def _init_log(self):
         # Create logger
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
         # create console handler and set level to debug
         self.ch = logging.StreamHandler()
-        #self.ch.setLevel(logging.DEBUG)
-        #self.ch.setLevel(logging.INFO)
+        # self.ch.setLevel(logging.DEBUG)
+        # self.ch.setLevel(logging.INFO)
         self.ch.setLevel(logging.WARNING)
 
         # create formatter
@@ -137,27 +142,41 @@ class VerdictAnalyser:
         else:
             return '普通程序'
 
-    def get_defendant_name(self, context):
+    def _get_defendant_name(self, context):
         self.logger.debug("Get defendant name in {}".format(context))
-        for i, p in enumerate(StaticUtils.defendant_pattern):
-            defendant = re.search(p, context)
-            if defendant:
-                # used to solve issue 被告人：王某轩 and 人：王某轩.
-                if i == 6:
-                    defendant = re.search(StaticUtils.last_name + '\w{0,4}', defendant.group())
-                    break
-                # used to solve issue 被告人邓运华邓某某.
-                if i == 7:
-                    d = re.search(StaticUtils.last_name + '\w\w', defendant.group())
-                    break
-                else:
-                    break
-        # else:
-        #    d = re.search(self.defendant_pattern[0], context)
+        for i, pattern in enumerate(StaticUtils.defendant_pattern):
+            for j, p in enumerate(pattern):
+                defendant = re.search(p, context)
+                if defendant:
+                    return i, j, defendant.group()
+        return None,None,None
+
+    def get_defendant_name(self, context):
+        i, j, defendant = self._get_defendant_name(context)
+        #print(i, j, defendant)
         if defendant:
-            self.logger.debug("Defendant name found {}".format(defendant.group()))
-            return defendant.group()
+            if i == 1 and j == 0:
+                defendant = re.search(StaticUtils.last_name + '\w{0,4}', defendant)
+                return defendant.group()
+            if i == 1 and j == 1:
+                defendant = re.search(StaticUtils.ss_last_name + '\w{0,4}', defendant)
+                return defendant.group()
+            # used to solve issue 被告人：王某轩 and 人：王某轩.
+            if i == 2 and j == 1:
+                d = re.search(StaticUtils.last_name + '\w{0,4}', defendant)
+                return d.group()
+            # used to solve issue 被告人邓运华邓某某.
+            if i == 2 and j == 2:
+                defendant = re.search(StaticUtils.last_name + '\w\w', defendant)
+                return defendant.group()
+            if i == 2 and j == 3:
+                defendant = re.search(StaticUtils.last_name + '\w{0,4}', defendant)
+                return defendant.group()
+            self.logger.debug("Defendant name is {}".format(defendant))
+            #print(defendant)
+            return defendant
         else:
+            self.logger.info("Defendant name is not found in {}".format(context))
             return None
 
     def get_defendant_age(self, context):
@@ -178,7 +197,8 @@ class VerdictAnalyser:
         return nation.group() if nation else None
 
     def get_defendant_education(self, context):
-        self.logger.debug("Search defendant education by {} in {}".format(StaticUtils.defendant_education_pattern, context))
+        self.logger.debug(
+            "Search defendant education by {} in {}".format(StaticUtils.defendant_education_pattern, context))
         education = re.search(StaticUtils.defendant_education_pattern, context)
         if education:
             if education.group() == '不识字':
@@ -224,8 +244,10 @@ class VerdictAnalyser:
         sex = re.search(StaticUtils.defendant_sex_pattern, context)
         return sex.group() if sex else None
 
-    def clean_defendant_info_list(self, defendant_info_list):
-        self.logger.debug('Before clean, defenent list is {}'.format(defendant_info_list))
+    def get_defendant_name_list(self, defendant_info_list):
+        self.logger.debug('Defenent list is {}'.format(defendant_info_list))
+        # Remove useless predefined infomation
+        defendant_info_list = self.clean_defendant_info_list(defendant_info_list)
         j = len(defendant_info_list)
         i = 0
         defendant_name_list = list()
@@ -233,29 +255,46 @@ class VerdictAnalyser:
             if defendant_name_list:
                 for defendant_name in defendant_name_list:
                     self.logger.debug('search {} in {}'.format(defendant_name, defendant_info_list[i]))
-                    search_defendant = re.search(r"被告人?" + defendant_name, defendant_info_list[i])
+                    search_defendant = re.search(defendant_name, defendant_info_list[i])
                     if search_defendant:
-                        self.logger.debug("Exist defendant name {} is found in {}".format(defendant_name, defendant_info_list[i]))
+                        self.logger.debug(
+                            "Exist defendant name {} is found in {}".format(defendant_name, defendant_info_list[i]))
                         break
                 else:
-                    defendant_name = self.get_defendant_name(defendant_info_list[i])
-                    if defendant_name:
-                        self.logger.debug("Name {} is found in {}".format(defendant_name, defendant_info_list[i]))
-                        defendant_name_list.append(defendant_name)
-                # 如果i+1段中出现以前出现过的被告人，那么合并i+1到i并删除i+1段
+                    new_defendant_name = self.get_defendant_name(defendant_info_list[i])
+                    if new_defendant_name:
+                        self.logger.debug("Name {} is found in {}".format(new_defendant_name, defendant_info_list[i]))
+                        defendant_name_list.append(new_defendant_name)
+                # 如果i段中出现i-1段中出现过的被告人，那么合并i到i-1并删除i段
                 # 如果i段中没有出现被告人，那么合并i+1到i并删除i+1段
-                if search_defendant or not defendant_name:
-                    defendant_info_list[i - 1] += defendant_info_list[i]
-                    defendant_info_list.pop(i)
-                    j -= 1
-                    i -= 1
+                if search_defendant or not new_defendant_name:
+                        defendant_info_list[i - 1] += defendant_info_list[i]
+                        defendant_info_list.pop(i)
+                        j -= 1
+                        i -= 1
             else:
                 defendant_name = self.get_defendant_name(defendant_info_list[i])
                 if defendant_name:
                     self.logger.debug("Name {} is found in {}".format(defendant_name, defendant_info_list[i]))
                     defendant_name_list.append(defendant_name)
                 else:
+                    # DEBUG HERE
+                    print(defendant_info_list[i])
+                    return None, None
                     defendant_info_list[i - 1] += defendant_info_list[i]
+                    defendant_info_list.pop(i)
+                    j -= 1
+                    i -= 1
+            i += 1
+        return defendant_info_list, defendant_name_list
+
+    def clean_defendant_info_list(self, defendant_info_list):
+        # Remove useless information like 被告人的基本情况:
+        j = len(defendant_info_list)
+        i = 0
+        while i < j:
+            for p in StaticUtils.clean_defendant_pattern:
+                if re.search(p, defendant_info_list[i]):
                     defendant_info_list.pop(i)
                     j -= 1
                     i -= 1
@@ -270,19 +309,21 @@ class VerdictAnalyser:
                     format(StaticUtils.defendant_info_pattern, self.defendant_section))
 
             defendant_info_list = self._findall_by_mul_pattern(StaticUtils.defendant_info_pattern,
-                                                              self.defendant_section)
+                                                               self.defendant_section)
 
             self.logger.debug("Defendant info is {}".format(defendant_info_list))
         if defendant_info_list is None:
             self.logger.info("No defendant result is found by {} in {}".format(StaticUtils.defendant_info_pattern,
                                                                                self.defendant_section))
             return None
-        return self.clean_defendant_info_list(defendant_info_list)
+        # return self.clean_defendant_info_list(defendant_info_list)
+        return defendant_info_list
 
     def get_convict_info_list(self):
         if self.convict_section:
             self.logger.debug(
-                "Find convict pattern {} in convict section {}".format(StaticUtils.convict_info_pattern, self.convict_section))
+                "Find convict pattern {} in convict section {}".format(StaticUtils.convict_info_pattern,
+                                                                       self.convict_section))
             convict_info_list = re.findall(StaticUtils.convict_info_pattern, self.convict_section)
             self.logger.debug("Found {}".format(convict_info_list))
             if not convict_info_list:
@@ -313,7 +354,8 @@ class VerdictAnalyser:
             j = len(convict_info_list)
             i = 0
             while i < (j - 1):
-                if re.search(defendant_name, convict_info_list[i]) and re.search(defendant_name, convict_info_list[i + 1]):
+                if re.search(defendant_name, convict_info_list[i]) and re.search(defendant_name,
+                                                                                 convict_info_list[i + 1]):
                     convict_info_list[i] += convict_info_list[i + 1]
                     convict_info_list.pop(i + 1)
                     j -= 1
@@ -334,7 +376,8 @@ class VerdictAnalyser:
                         for c in StaticUtils.zm_group[g]:
                             charge = re.search(c, convict_info)
                     if charge:
-                        self.logger.debug("Defendant {} 犯.*罪 is not found, {} is found.".format(defendant_name, charge.group()))
+                        self.logger.debug(
+                            "Defendant {} 犯.*罪 is not found, {} is found.".format(defendant_name, charge.group()))
                         return charge.group()
         else:
             self.logger.info("Charge is not found in {} for {}".format(convict_info_list, defendant_name))
@@ -344,7 +387,8 @@ class VerdictAnalyser:
         prison = None
         for convict_info in convict_info_list:
             if re.search(defendant_name, convict_info):
-                self.logger.debug("Search defendant prison by {} in {}".format(StaticUtils.defendant_prison_pattern, convict_info))
+                self.logger.debug(
+                    "Search defendant prison by {} in {}".format(StaticUtils.defendant_prison_pattern, convict_info))
                 prison = self._search_by_mul_pattern(StaticUtils.defendant_prison_pattern, convict_info)
             if prison:
                 # 如果匹配出罚金则没有匹配到犯罪类型。
@@ -402,7 +446,9 @@ class VerdictAnalyser:
                     if probation:
                         return probation.group()
         else:
-            self.logger.debug("Probation is not found for {} by {} in {}".format(defendant_name, StaticUtils.defendant_probation_pattern, convict_info_list))
+            self.logger.debug("Probation is not found for {} by {} in {}".format(defendant_name,
+                                                                                 StaticUtils.defendant_probation_pattern,
+                                                                                 convict_info_list))
             return None
 
     def get_number(self, text):
@@ -443,10 +489,14 @@ class VerdictAnalyser:
     def get_defendant_info(self):
         defendant_info_list = self.get_defendant_info_list()
         convict_info_list = self.get_convict_info_list()
+
+        defendant_info_list, defendant_name_list = self.get_defendant_name_list(defendant_info_list)
+        if defendant_name_list is None:
+            return None
         defendant_list = [dict() for x in range(len(defendant_info_list))]
         for index, defendant in enumerate(defendant_info_list):
             self.logger.debug("No.{} defendant info is {}".format(index, defendant))
-            defendant_list[index]['name'] = self.get_defendant_name(defendant)
+            defendant_list[index]['name'] = defendant_name_list[index]
             defendant_list[index]['age'] = self.get_defendant_age(defendant)
             defendant_list[index]['sex'] = self.get_defendant_sex(defendant)
             defendant_list[index]['nation'] = self.get_defendant_nation(defendant)
@@ -473,18 +523,25 @@ class VerdictAnalyser:
 
         if convict_info_list:
             convict_info_list = self.clean_defendant_charge(defendant_list, convict_info_list)
-
-        for i in range(len(defendant_list)):
-            defendant_list[i]['charge'] = self.get_defendant_charge(defendant_list[i]['name'], convict_info_list)
-            defendant_list[i]['charge_c'] = self.get_charge_class(defendant_list[i]['charge'])
-            defendant_list[i]['prison'] = self.get_defendant_prison(defendant_list[i]['name'], convict_info_list)
-            defendant_list[i]['prison_l'] = self.get_prison_len(defendant_list[i]['prison'])
-            defendant_list[i]['probation'] = self.get_defendant_probation(defendant_list[i]['name'], convict_info_list)
-            defendant_list[i]['probation_l'] = self.get_prison_len(defendant_list[i]['probation'])
-            defendant_list[i]['fine'] = self.get_defendant_fine(defendant_list[i]['name'], convict_info_list)
+            for i in range(len(defendant_list)):
+                defendant_list[i]['charge'] = self.get_defendant_charge(defendant_list[i]['name'], convict_info_list)
+                defendant_list[i]['charge_c'] = self.get_charge_class(defendant_list[i]['charge'])
+                defendant_list[i]['prison'] = self.get_defendant_prison(defendant_list[i]['name'], convict_info_list)
+                defendant_list[i]['prison_l'] = self.get_prison_len(defendant_list[i]['prison'])
+                defendant_list[i]['probation'] = self.get_defendant_probation(defendant_list[i]['name'],
+                                                                              convict_info_list)
+                defendant_list[i]['probation_l'] = self.get_prison_len(defendant_list[i]['probation'])
+                defendant_list[i]['fine'] = self.get_defendant_fine(defendant_list[i]['name'], convict_info_list)
+        else:
+            for i in range(len(defendant_list)):
+                defendant_list[i]['charge'] = None
+                defendant_list[i]['charge_c'] = None
+                defendant_list[i]['prison'] = None
+                defendant_list[i]['prison_l'] = None
+                defendant_list[i]['probation'] = None
+                defendant_list[i]['probation_l'] = None
+                defendant_list[i]['fine'] = None
         return defendant_list
-
-
 
     def analyse_doc(self):
         if self.size < 100:
@@ -494,7 +551,7 @@ class VerdictAnalyser:
 
         case_info = dict()
         self.divide_2_mul_sections()
-        case_info['name'] = self.dir_name  + '\\' + self.file_name
+        case_info['name'] = self.dir_name + '\\' + self.file_name
         case_info['verdict'] = self.get_verdict_name()
         case_info['id'] = self.get_case_id()
         case_info['court'] = self.get_court_name()
@@ -504,6 +561,8 @@ class VerdictAnalyser:
         case_info['procedure'] = self.get_procedure()
         case_info['year'] = self.year
         case_info['defendant'] = self.get_defendant_info()
+        if case_info['defendant'] is None:
+            return None
 
         defendant_num = len(case_info['defendant'])
         output = [dict() for x in range(defendant_num)]
