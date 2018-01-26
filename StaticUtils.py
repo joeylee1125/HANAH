@@ -318,7 +318,7 @@ report_col_names = ['file_name', 'verdict', 'id', 'court', 'region', 'court_leve
               'procedure', 'year', 'd_name', 'd_age', 'd_sex', 'd_nation', 'd_education',
               'd_job', 'd_lawyer', 'd_lawyer_n', 'd_s_lawyer', 'd_s_lawyer_n', 'd_has_lawyer',
               'd_charge', 'd_charge_c', 'd_prison', 'd_prison_l', 'd_probation', 'd_probation_l',
-              'd_fine', 'd_bail']
+              'd_fine', 'd_bail', 'd_pre_charge','d_sue_date', 'd_judge_date', 'd_days_in_court']
 
 
 
@@ -872,15 +872,16 @@ DANGTHANHTUNG|艾亥提·阿布来提|胜扎么某某|博什么某某|都仁某�
 阿约约真日|泽真罗尔吾|尼美王修|朋错扎西|尾什么日外|日么沙作|比布哈约|乃乃阿支|社特尔布|维色伍卡|热科么惹作|西绕尼玛|\
 瓦渣子鬼|乃保么尔各|勒古么友子|奥杰尔子|能还么色各|拉尔小明|尺都泽仁|让布|努尔艾合麦提·图尔孙|沙马阿西莫|取比比莫|\
 艾热克尼托合提克尔办|阿卜杜喀哈尔胡东拜迪|阿布都如苏力买买提|阿比提麦麦提|阿里木土尔滚|抓子央章次尔|尾什么林扎|\
-麦麦提尼亚孜托合提)'
+麦麦提尼亚孜托合提|吐尔孙塞买提)'
 #|送|本|刀|将|时||把||起未|于
 # 基本情况姓名
 invalid_name = '(\
 把德君|求某|于某|于斌|于佳|于文勇|于光明|于海|于快|于术和|于绍国|于绍斌|于洪波|于仕彪|于长江|于杰|于景会|于洋文|\
-于洪伟|于磊|李\*|则周|无名氏|侯映华|高举太|谢某|陈梁|李贵林|龙天旭|都华武|\
+于洪伟|于磊|李\*|则周|无名氏|侯映华|高举太|谢某|陈梁|李贵林|龙天旭|都华武|但存彪|\
 肉孜尼萨·卡地尔|玛伊努尔·阿卜杜拉|的某某|和某某|起应忠|都建波|买某某|都某某|起朝伟|令某|欠玉泉|\
-拉某|开某某|来任重|说泽|来某|某某|从兆存|降错|直巴|未生生|未大彬|未平|马＊|六斤|则惹体|时建文|时某|本|况)'
-
+拉某|开某某|来任重|说泽|来某|某某|从兆存|降错|直巴|未生生|未大彬|未平|马＊|六斤|则惹体|时建文|时某)'
+#本|况
+#这两个还没有处理
 
 not_a_name_list = ['户籍', '自愿', '当庭',
                         '曾经', '曾因', '文化',
@@ -941,8 +942,14 @@ ch_en_number_dict = {
 "二十七": 27,
 "二十八": 28,
 "二十九": 29,
-"三十":  30}
+"三十":  30,
+"三十一": 31,
+"二〇一六":2016,
+"二〇一七":2017,
+"二〇一八":2018}
 ########## Patterns #######################
+pre_charge_pattern = [re.compile("指控被告人.+犯(.*)罪.*提起公诉")]
+
 defendant_section_pattern = [re.compile('被告人?.*?(?:提起公诉)'),
                              re.compile('被告人?.*?(?:指控)'),
                              re.compile('被告人?.*?(?:起诉书)'),
@@ -951,7 +958,12 @@ defendant_section_pattern = [re.compile('被告人?.*?(?:提起公诉)'),
 convict_section_pattern = [re.compile(r"判[决处](如下|结果).*不服本判决"),
                            re.compile(r"判[决处](?!书)(如下|结果)?.*不服本判决"),
                            re.compile(r"判[决处]如下.*审"),
-                           re.compile(r"判[决处]如下.*$")]
+                           re.compile(r"判[决处]如下.*$"),
+                           re.compile(r"之规定,.*不服本判决")]
+
+sue_date_pattern = re.compile("于(?P<year>\d{4})年(?P<month>\d{1,2})月(?P<day>\d{1,2})日向本院提起公诉")
+
+judge_date_pattern = re.compile("(?P<year>[一二三四五六七八九十〇]{4})年(?P<month>[一二三四五六七八九十]{1,2})月(?P<day>[一二三四五六七八九十]{1,3})日")
 
 head_section_pattern = [re.compile(r".*?(?=被告人)")]
 
@@ -979,7 +991,7 @@ defendant_info_pattern = [re.compile('被告人?.*?(?=被告|提起公诉|指控
 defendant_pattern = [[re.compile('(?<=被告人)' + last_name + '\w{1,2}(?=[.,:(]|$)'),
                       re.compile('(?<=被告人)' + ss_last_name + '\w{1,3}(?=[.,:(]|$)')],
                      [re.compile('(?<=被告人)的?(基本|身份)情况:?(姓名)?:?' + last_name + '\w{1,3}(?=[.,(]|曾用名|出生日期|性别|绰号|成都市|公诉机关)'),
-                      re.compile('(?<=被告人)的?(基本|身份)情况:?(姓名)?:?' + ss_last_name + '\w{1,3}(?=[.,(]|曾用名|出生日期|性别|绰号|成都市|公诉机关)')],
+                      re.compile('(?<=被告人)的?(基本|身份)情况:?(姓名)?:?' + ss_last_name + '\w{1,6}(?=[.,(]|曾用名|出生日期|性别|绰号|成都市|公诉机关)')],
                      [re.compile('(?<=被告人姓名)' + last_name + '\w{0,4}出生日期'),
                       re.compile('(?<=被告)人?:?' + last_name + '\w{0,4}(?=[.,(]|201)'),
                       re.compile('(?<=被告人)' + last_name + '\w\w' + last_name + '[某甲]+'),
@@ -988,13 +1000,14 @@ defendant_pattern = [[re.compile('(?<=被告人)' + last_name + '\w{1,2}(?=[.,:(
                       re.compile(invalid_name)],
                      [re.compile('(?<=被告人)' + last_name + '\w{1,3}(?=成都|公诉机关)'),
                       re.compile('(?<=被告人)' + last_name + '\w{1,3}(?=成都|公诉机关)')],
-                     [re.compile('(?<=被告人)\w+(?=[,.(])')]
+                     [re.compile('(?<=被告人)(?!不可能|不具有|无社会)\w+(?=[,.(])')]
                      ]
                      #re.compile('(?<=被告人..情况姓名)' + last_name + '\w{0,4}[,(|出生日期|性别]'),
                      #re.compile('(?<=被告人)' + CourtList.last_name + '\w{0,4}(?=成都市)'))
 
 
 clean_defendant_pattern = [re.compile(r"被告人(的|及辩护人)?基本情况:?$"),
+                           re.compile(r"被告人(基本|情况|身份|信息|姓名)+$"),
                            re.compile(r"被告人:?$"),
                            re.compile(r"被告单位"),
                            re.compile(r"被告人(现羁押|取保候审)"),

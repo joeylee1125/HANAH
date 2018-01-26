@@ -27,6 +27,9 @@ class MyFolder:
     def get_file_list(self):
         return os.listdir(self.name)
 
+    def get_basename(self):
+        return os.path.basename(self.name)
+
     def delete(self):
         pass
 

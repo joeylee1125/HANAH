@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 import re
 import logging
+import datetime
 
 import StaticUtils
 import FileOperations
@@ -49,8 +50,8 @@ class VerdictAnalyser:
         self.content = re.sub('\s+', '', self.content)
 
     def _remove_symbol(self):
-        self.content = re.sub(r"&middot;", '', self.content)
-        self.content = re.sub(r"& bull;", '', self.content)
+        self.content = re.sub(r"&\w+?;", '', self.content)
+        #self.content = re.sub(r"&bull;", '', self.content)
 
     def _init_log(self):
         # Create logger
@@ -134,7 +135,10 @@ class VerdictAnalyser:
 
     def get_prosecutor(self):
         self.logger.debug("Search prosecutor id by {} in {}".format(StaticUtils.prosecutor_pattern, self.head_section))
-        return self._search_by_mul_pattern(StaticUtils.prosecutor_pattern, self.head_section)
+        prosecutor = self._search_by_mul_pattern(StaticUtils.prosecutor_pattern, self.head_section)
+        if prosecutor:
+            return re.sub(r":", '', prosecutor)
+        return None
 
     def get_procedure(self):
         if re.search('简易程序', self.content):
@@ -336,6 +340,7 @@ class VerdictAnalyser:
         for index in range(len(defendant_list)):
             defendant_name_list.append(defendant_list[index]['name'])
         # 如果i段中出现一个以上被告人，删除i，被告人成组出现不处理
+        # BUG: 如果第二个被告人的名字包含在第一个被告人的名字中，会误删
         i = 0
         j = len(convict_info_list)
         while i < j:
@@ -362,6 +367,47 @@ class VerdictAnalyser:
                 else:
                     i += 1
         return convict_info_list
+
+    def get_pre_charge(self):
+        #raw_pre_charge = self._search_by_mul_pattern(StaticUtils.pre_charge_pattern, self.content)
+        #if raw_pre_charge:
+        #pre_charge = re.search("(?<=犯).*?(?!犯罪).(?=罪)", raw_pre_charge)
+        #else:
+        #    return None
+        #pre_charge = re.search("辩护意见.*?(?!辩护意见).*?采纳", self.content)
+        #return pre_charge.group() if pre_charge else None
+        a = re.search("予以采纳", self.content)
+        b = re.search("不予采纳", self.content)
+        return a, b
+
+    def get_sue_date(self):
+        sue_date = re.search(StaticUtils.sue_date_pattern, self.content)
+        if sue_date:
+            return sue_date.group('year'), sue_date.group('month'), sue_date.group('day')
+        else:
+            return None, None, None
+
+    def get_judge_date(self):
+        judge_date = re.search(StaticUtils.judge_date_pattern, self.content)
+        if judge_date:
+            return self.trans_chinese_number(judge_date.group('year')), \
+                   self.trans_chinese_number(judge_date.group('month')), \
+                   self.trans_chinese_number(judge_date.group('day'))
+        else:
+            return None, None, None
+
+    # start_day, stop_day are tuples.
+    def get_days(self, start_day, stop_day):
+        if None in start_day or None in stop_day:
+            return None
+        else:
+            try:
+                start_date = datetime.datetime(int(start_day[0]), int(start_day[1]), int(start_day[2]))
+                stop_date = datetime.datetime(int(stop_day[0]), int(stop_day[1]), int(stop_day[2]))
+            except:
+                return None
+            return (start_date - stop_date).days
+
 
     def get_defendant_charge(self, defendant_name, convict_info_list):
         charge = None
@@ -494,17 +540,18 @@ class VerdictAnalyser:
         if defendant_name_list is None:
             return None
         defendant_list = [dict() for x in range(len(defendant_info_list))]
-        for index, defendant in enumerate(defendant_info_list):
-            self.logger.debug("No.{} defendant info is {}".format(index, defendant))
+        for index, defendant_info in enumerate(defendant_info_list):
+            self.logger.debug("No.{} defendant info is {}".format(index, defendant_info))
             defendant_list[index]['name'] = defendant_name_list[index]
-            defendant_list[index]['age'] = self.get_defendant_age(defendant)
-            defendant_list[index]['sex'] = self.get_defendant_sex(defendant)
-            defendant_list[index]['nation'] = self.get_defendant_nation(defendant)
-            defendant_list[index]['education'] = self.get_defendant_education(defendant)
-            defendant_list[index]['job'] = self.get_defendant_job(defendant)
-            defendant_list[index]['lawyer'] = self.get_defendant_lawyer(defendant)
-            defendant_list[index]['s_lawyer'] = self.get_defendant_s_lawyer(defendant)
-            defendant_list[index]['bail'] = self.get_defendant_bail(defendant)
+            defendant_list[index]['age'] = self.get_defendant_age(defendant_info)
+            defendant_list[index]['sex'] = self.get_defendant_sex(defendant_info)
+            defendant_list[index]['nation'] = self.get_defendant_nation(defendant_info)
+            defendant_list[index]['education'] = self.get_defendant_education(defendant_info)
+            defendant_list[index]['job'] = self.get_defendant_job(defendant_info)
+            defendant_list[index]['lawyer'] = self.get_defendant_lawyer(defendant_info)
+            defendant_list[index]['s_lawyer'] = self.get_defendant_s_lawyer(defendant_info)
+            defendant_list[index]['bail'] = self.get_defendant_bail(defendant_info)
+
 
             if defendant_list[index]['lawyer']:
                 defendant_list[index]['lawyer_n'] = len(defendant_list[index]['lawyer'])
@@ -560,6 +607,10 @@ class VerdictAnalyser:
         case_info['prosecutor'] = self.get_prosecutor()
         case_info['procedure'] = self.get_procedure()
         case_info['year'] = self.year
+        case_info['pre_charge'] = self.get_pre_charge()
+        case_info['sue_date'] = self.get_sue_date()
+        case_info['judge_date'] = self.get_judge_date()
+        case_info['days_in_court'] = self.get_days(case_info['sue_date'], case_info['judge_date'])
         case_info['defendant'] = self.get_defendant_info()
         if case_info['defendant'] is None:
             return None
@@ -595,5 +646,8 @@ class VerdictAnalyser:
             output[d]['d_probation_l'] = case_info['defendant'][d]['probation_l']
             output[d]['d_fine'] = case_info['defendant'][d]['fine']
             output[d]['d_bail'] = case_info['defendant'][d]['bail']
+            output[d]['d_sue_date'] = case_info['sue_date']
+            output[d]['d_judge_date'] = case_info['judge_date']
+            output[d]['d_days_in_court'] = case_info['days_in_court']
         self.logger.debug("Output of case {} is {}".format(self.file_name, output))
         return output

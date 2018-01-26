@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 import argparse
+import datetime
 import json
 import re
 import time
@@ -196,15 +197,25 @@ def download_case_by_upload_date(year, base_folder):
     return None
 
 def main():
-    year = '2017'
+    #year = '2018'
     base_dir = 'C:\\Users\\lij37\\Cases'
+    years = ['2017', '2018']
+    yesterday = datetime.date.today() - datetime.timedelta(1)
 
-    for mon in range(1, 2):
-        for day in range(21, 22):
-            upload_date = '2018-' + '{0:02d}'.format(mon) + '-' + '{0:02d}'.format(day)
-            download_case_list_by_upload_date(year, base_dir, upload_date, upload_date)
-    download_case_by_upload_date(year, base_dir)
+    for year in years:
+        upload_date = '{}'.format(yesterday.year) + '-' + '{0:02d}'.format(yesterday.month) + '-' + '{0:02d}'.format(yesterday.day)
+        #print(upload_date)
+        download_case_list_by_upload_date(year, base_dir, upload_date, upload_date)
+        download_case_by_upload_date(year, base_dir)
     return None
+
+#    for year in ['2017', '2018']:
+#        for mon in range(1, 2):
+#            for day in range(26, 27):
+#                upload_date = '2018-' + '{0:02d}'.format(mon) + '-' + '{0:02d}'.format(day)
+#                download_case_list_by_upload_date(year, base_dir, upload_date, upload_date)
+#        download_case_by_upload_date(year, base_dir)
+#    return None
     #download_1st_level_case_list(year, base_dir)
     #download_mid_level_case_list(year, base_dir)
     #get_court_list(CourtList.court_list['zhongji'])

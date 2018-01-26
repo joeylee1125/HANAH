@@ -10,6 +10,10 @@ import VerdictAnalyser
 import FileOperations
 import VerdictAnalyserv2
 
+BASE_DIR = "C:\\Users\\lij37\\Cases"
+YEAR = 2017
+CASE_DIR = BASE_DIR + '\\' + str(YEAR) + '\\Cases'
+
 def get_sp_list(folder):
         file_list = os.listdir(folder)
         i, j = 0, 0
@@ -77,17 +81,19 @@ def get_defendant(case_folder, year):
     return True
 
 
-def get_report(case_folder, base_folder, year):
+def get_report(case_folder):
+    print("Generate report for {}".format(case_folder))
     analyse_result = list()
-    case_folder = FileOperations.MyFolder(case_folder)
-    case_list = case_folder.get_file_list()
-    report_path = base_folder + '\\' + str(year) + '\\reports'
-    report_name = report_path + '\\' + os.path.basename(case_folder.name) + ".csv"
+    path_2_folder = BASE_DIR + '\\' + str(YEAR) + '\\Cases\\' + case_folder
+    my_folder = FileOperations.MyFolder(path_2_folder)
+    case_list = my_folder.get_file_list()
+    report_path = BASE_DIR + '\\' + str(YEAR) + '\\reports'
+    report_name = report_path + '\\' + os.path.basename(my_folder.name) + ".csv"
     i = 0
     for case in case_list:
         #print('{} Begin to analyse...    {}'.format(i, case))
         i += 1
-        verdict = VerdictAnalyserv2.VerdictAnalyser(case_folder.name + '\\' + case, year)
+        verdict = VerdictAnalyserv2.VerdictAnalyser(my_folder.name + '\\' + case, YEAR)
         results = verdict.analyse_doc()
         if results is not None:
             analyse_result.extend(results)
@@ -130,10 +136,102 @@ def test_prison(path_2_file, year):
         print(c)
         print(p)
 
+def test_pre_charge(path_2_file):
+    verdict = VerdictAnalyserv2.VerdictAnalyser(path_2_file, YEAR)
+    if verdict.size < 100 or "附带民事" in verdict.content:
+        return None
+    #verdict.divide_2_mul_sections()
+    #defendant_info_list = verdict.get_defendant_info_list()
+    #convict_info_list = verdict.get_convict_info_list()
+    print(verdict.content)
+    print(verdict.get_pre_charge())
+    #print(convict_info_list)
+
+def test_convict_section(path_2_file):
+    verdict = VerdictAnalyserv2.VerdictAnalyser(path_2_file, YEAR)
+    if verdict.size < 100 or "附带民事" in verdict.content:
+        return None
+    verdict.divide_2_mul_sections()
+    defendant_info_list = verdict.get_defendant_info_list()
+    convict_info_list = verdict.get_convict_info_list()
+    print(verdict.content)
+    print(defendant_info_list)
+    print(convict_info_list)
+    print('---------------AFTER---------------------------')
+    defendant_info_list, defendant_name_list = verdict.get_defendant_name_list(defendant_info_list)
+    defendant_list = [dict() for x in range(len(defendant_info_list))]
+    for index, defendant_info in enumerate(defendant_name_list):
+        defendant_list[index]['name'] = defendant_name_list[index]
+        bail = verdict.get_defendant_bail(defendant_info)
+    convict_info_list = verdict.clean_defendant_charge(defendant_list, convict_info_list)
+    print(defendant_name_list)
+    print(convict_info_list)
+    for i in range(len(defendant_list)):
+        prison = verdict.get_defendant_prison(defendant_list[i]['name'], convict_info_list)
+        charge = verdict.get_defendant_charge(defendant_list[i]['name'], convict_info_list)
+        charge_class = verdict.get_charge_class(charge)
+        prison_l = verdict.get_prison_len(prison)
+        probation = verdict.get_defendant_probation(defendant_list[i]['name'], convict_info_list)
+        probation_l = verdict.get_prison_len(probation)
+        fine = verdict.get_defendant_fine(defendant_list[i]['name'], convict_info_list)
+        print("{:-<20} {}".format("Prison", prison))
+        print("{:-<20} {}".format("Prison length", prison_l))
+        print("{:-<20} {}".format("Charge", charge))
+        print("{:-<20} {}".format("Charge class", charge_class))
+        print("{:-<20} {}".format("Probation", probation))
+        print("{:-<20} {}".format("Probation length", probation_l))
+        print("{:-<20} {}".format("Fine", fine))
+        print("{:-<20} {}".format("Bail", bail))
+    print("")
+
+
+
+
+def read(path_2_file):
+    verdict = VerdictAnalyserv2.VerdictAnalyser(path_2_file, YEAR)
+    print(verdict.content)
+
+def run_a_file(func, path_2_file):
+    func(path_2_file)
+
+def run_a_folder(func, folder):
+    my_folder = FileOperations.MyFolder(CASE_DIR + '\\' + folder)
+    for case in my_folder.get_file_list():
+        func(my_folder.name + '\\' + case)
+
+def run_all_folder(func, starter=None):
+    if starter:
+        skip = True
+    else:
+        skip = False
+    my_cases_folder = FileOperations.MyFolder(BASE_DIR + '\\' + str(YEAR) + '\\cases')
+    for region in my_cases_folder.get_file_list():
+        if starter == region:
+            skip = False
+        if skip:
+            continue
+        my_region_folder = FileOperations.MyFolder(my_cases_folder.name + '\\' + region)
+        #run_a_folder(func, my_region_folder.get_basename())
+        func(region)
+
 def main():
-    path_2_file = "C:\\Users\\lij37\\Cases\\2017\\cases\\长宁县人民法院\\王兴强犯非法持有枪支罪一审刑事判决书_01f14be5-5244-4dd5-83f0-a81900ab8ce9.txt"
+    folder = '成都高新技术产业开发区人民法院'
+    path_2_file = "C:\\Users\\lij37\\Cases\\2017\\cases\\都江堰市人民法院\\马某冒充军人招摇撞骗罪一审刑事判决书_7742721d-3d4f-4195-ba6d-a76f00c1854f.txt"
+    #f = test_convict_section
+    #f = read
+    #f = test_pre_charge
+    f = get_report
+    #run_a_file(f, path_2_file)
+    #run_a_folder(f, folder)
+    run_all_folder(f,"岳池县人民法院")
+    #get_report(folder)
+    return None
+
+
+
+
     base_dir = "C:\\Users\\lij37\\Cases"
-    year = 2014
+    year = 2017
     i = 0
     #test_prison(path_2_file, year)
     #get_defendant_single(path_2_file, year)
@@ -144,17 +242,16 @@ def main():
     j = 0
     for region in my_cases_folder.get_file_list():
         i += 1
-        print(i)
         if "荥经县人民法院" in region:
             check = True
         if not check:
             continue
         my_region_folder = FileOperations.MyFolder(my_cases_folder.name + '\\' + region)
-        print(my_region_folder.name)
+        print(i, my_region_folder.name)
 
         #j = j + get_invalid(my_region_folder.name, year)
         #print(j)
-        get_report(my_region_folder.name, base_dir, year)
+        #get_report(my_region_folder.name, base_dir, year)
 
         #return None
         #if get_defendant(my_region_folder.name, year):
